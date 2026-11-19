@@ -27,14 +27,18 @@ describe("the GitHub plugin", () => {
   });
 
   it("lets Barynt read GitHub's webhooks, with no server of its own", () => {
-    expect(manifest.contributes.inboundHooks).toEqual([
-      {
-        id: "github",
-        title: "GitHub repository",
-        provider: "github",
-        handle: "link",
-      },
+    const [hook] = manifest.contributes.inboundHooks;
+    expect(hook).toMatchObject({
+      id: "github",
+      provider: "github",
+      handle: "link",
+    });
+    // Rules Barynt runs as the plugin's app (BARY-227): it may set a status.
+    expect(hook.rules.map((r) => r.on)).toEqual([
+      "pull_request.opened",
+      "pull_request.merged",
     ]);
+    expect(manifest.capabilities).toContain("issues:write");
     expect("service" in manifest).toBe(false);
   });
 });
