@@ -6,8 +6,9 @@
     "lib": ["dom", "esnext"],
     "types": ["bun"],
     "strict": true,
+    "resolveJsonModule": true,
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "server", "scripts"]
+  "include": ["src", "tests", "scripts"]
 }

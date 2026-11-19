@@ -1,16 +1,34 @@
 {
-  "id": "open-issues",
-  "name": "Open Issues",
+  "id": "github",
+  "name": "GitHub",
   "version": "0.1.0",
   "minBaryntVersion": "1.0.0",
-  "author": "You",
-  "description": "The project's open issues at a glance.",
+  "author": "Barynt",
+  "authorUrl": "https://github.com/barynt-dev",
+  "description": "Pull requests, branches, commits and checks on the issues they name. Rules move an issue along as its pull request does.",
   "license": "MIT",
   "kind": "sandbox",
   "levels": ["project"],
-  "capabilities": ["issues:read", "ui:project-view"],
-  "network": [],
+  "capabilities": ["issues:read", "webhooks:receive"],
+  "network": ["api.github.com"],
   "contributes": {
-    "projectViews": [{ "id": "open", "title": "Open issues" }]
+    "credentials": [
+      {
+        "key": "githubToken",
+        "label": "GitHub token",
+        "description": "A fine-grained token for the team's repositories: Contents read and write (for branches), Pull requests and Checks read. Only ever sent to api.github.com.",
+        "level": "user",
+        "host": "api.github.com",
+        "format": "Bearer {value}"
+      }
+    ],
+    "inboundHooks": [
+      {
+        "id": "github",
+        "title": "GitHub repository",
+        "provider": "github",
+        "handle": "link"
+      }
+    ]
   }
 }

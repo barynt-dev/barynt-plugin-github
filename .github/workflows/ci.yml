@@ -37,6 +37,9 @@ jobs:
       - name: Install
         working-directory: plugin
         run: bun install
+      - name: Lint
+        working-directory: plugin
+        run: bun run lint
       - name: Typecheck
         working-directory: plugin
         run: bun run typecheck
