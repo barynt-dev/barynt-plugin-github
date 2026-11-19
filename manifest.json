@@ -13,10 +13,17 @@
     "issues:read",
     "issues:write",
     "comments:write",
-    "webhooks:receive"
+    "webhooks:receive",
+    "ui:issue-badge"
   ],
   "network": ["api.github.com"],
   "contributes": {
+    "issueBadges": [
+      {
+        "id": "pull-request",
+        "title": "Pull request"
+      }
+    ],
     "credentials": [
       {
         "key": "githubToken",
