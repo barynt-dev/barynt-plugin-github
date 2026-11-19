@@ -62,6 +62,68 @@ describe("the GitHub plugin", () => {
     await unload();
   });
 
+  it("draws the Development panel, reviews with the person's token", async () => {
+    const pr = {
+      kind: "pull_request",
+      repo: "acme/web",
+      number: 42,
+      title: "Keep the cookie",
+      state: "open",
+      review: null,
+      url: "https://github.com/acme/web/pull/42",
+      branch: "web-1",
+      base: "main",
+      author: "ada",
+      additions: 120,
+      deletions: 34,
+      at: "2026-11-19T10:00:00Z",
+    };
+    const panel = (net: () => unknown) => {
+      const root = document.createElement("div");
+      return {
+        root,
+        host: createTestHost({
+          root: root as unknown as HTMLElement,
+          context: {
+            slot: { kind: "issuePanel", id: "development" },
+            issueId: "i-1",
+          },
+          handlers: {
+            "issueData.list": () => ({
+              "i-1": [{ key: "pr", value: pr, updatedAt: pr.at }],
+            }),
+            "net.fetch": net as never,
+          },
+        }),
+      };
+    };
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+
+    const withToken = panel(() => ({
+      status: 200,
+      headers: {},
+      text: JSON.stringify([{ user: { login: "tom" }, state: "APPROVED" }]),
+    }));
+    await loadPlugin(GitHub, withToken.host);
+    await settle();
+    expect(withToken.root.textContent).toContain("acme/web#42");
+    expect(withToken.root.textContent).toContain("tom");
+    expect(withToken.host.calls.at(-1)).toMatchObject({
+      method: "net.fetch",
+      params: {
+        url: "https://api.github.com/repos/acme/web/pulls/42/reviews?per_page=100",
+      },
+    });
+
+    const noToken = panel(() => {
+      // As Barynt refuses a request without the person's token.
+      throw new Error("credential_missing");
+    });
+    await loadPlugin(GitHub, noToken.host);
+    await settle();
+    expect(noToken.root.textContent).toContain("Keep your GitHub token");
+  });
+
   it("lets Barynt read GitHub's webhooks, with no server of its own", () => {
     const [hook] = manifest.contributes.inboundHooks;
     expect(hook).toMatchObject({
