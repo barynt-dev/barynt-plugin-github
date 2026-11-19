@@ -14,7 +14,8 @@
     "issues:write",
     "comments:write",
     "webhooks:receive",
-    "ui:issue-badge"
+    "ui:issue-badge",
+    "ui:issue-panel"
   ],
   "network": ["api.github.com"],
   "contributes": {
@@ -22,6 +23,13 @@
       {
         "id": "pull-request",
         "title": "Pull request"
+      }
+    ],
+    "issuePanels": [
+      {
+        "id": "development",
+        "title": "Development",
+        "placement": "sidebar"
       }
     ],
     "credentials": [

@@ -7,8 +7,8 @@ server to run: Barynt reads GitHub's webhooks itself and keeps what they
 say on the issues; this plugin draws it.
 
 > [!NOTE]
-> Work in progress (BARY-219). Done so far: the webhook, its rules and the
-> pull request's row on a card. Next: the "Development" panel and creating
+> Work in progress (BARY-219). Done so far: the webhook, its rules, the
+> pull request's row on a card and the "Development" panel. Next: creating
 > a branch from an issue.
 
 ## On the board
@@ -50,6 +50,14 @@ or leave it off:
 Barynt sets it as "GitHub (App)" and comments why — only for an issue the
 pull request works on: its key in the branch's name, or after _Fixes_,
 _Closes_ or _Resolves_ in the title or description.
+
+## In the issue
+
+The **Development** panel in the issue's sidebar shows its branch (copy
+the name, open it on GitHub), its pull requests with their state, checks,
+size and — with your own GitHub token — who reviewed, and the commits that
+name it (five, then "Show all"). A click on a card's pull request row opens
+the issue there.
 
 ## How issues are found
 
