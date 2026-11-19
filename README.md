@@ -27,7 +27,7 @@ say on the issues; this plugin draws it.
      reviews, Pushes
 4. Each person who wants to create branches from Barynt adds a
    **fine-grained token** under their personal settings → Plugins → GitHub:
-   *Contents* read and write, *Pull requests* and *Checks* read, for the
+   _Contents_ read and write, _Pull requests_ and _Checks_ read, for the
    team's repositories. It's only ever sent to `api.github.com`.
 
 ## How issues are found
