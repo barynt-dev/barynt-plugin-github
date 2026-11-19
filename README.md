@@ -1,88 +1,61 @@
-# Barynt plugin template
+# GitHub for Barynt
 
-A starting point for a [Barynt](https://github.com/barynt-dev/barynt-web)
-plugin: a sandboxed project view that lists the project's open issues,
-with tests, a build, a release script and CI. Start a repository from it
-(**Use this template** on
-[barynt-dev/barynt-plugin-template](https://github.com/barynt-dev/barynt-plugin-template)),
-rename the plugin, and change what it does.
+Pull requests, branches, commits and checks on the issues they name, in
+[Barynt](https://github.com/barynt-dev/barynt-web). A pull request whose
+branch, title or description says `WEB-42` shows on issue WEB-42 — no
+server to run: Barynt reads GitHub's webhooks itself and keeps what they
+say on the issues; this plugin draws it.
 
 > [!NOTE]
-> This repository is published from `templates/plugin/` in barynt-web —
-> changes to the template go there.
+> Work in progress (BARY-219). Done so far: the manifest and the webhook.
+> Next: the pull request's row on a card, the "Development" panel, creating
+> a branch from an issue, and rules (merged → Done).
 
-```text
-manifest.json        who the plugin is, where it runs, what it may do
-src/main.ts          the plugin: one class, registered in onload()
-src/open.ts          its logic, kept apart so tests need no DOM
-styles.css           its styles, with Barynt's tokens
-tests/main.test.ts   against the SDK's test host
-server/index.ts      its own server (optional), with createService
-scripts/build.ts     dist/: main.js, manifest.json, styles.css
-scripts/release.ts   release/<version>/, its hash, release/plugins.json
-.github/workflows/   test and build on every push, a release on a tag
-```
+## Set it up in a project
 
-## Set up
+1. **Admin → Plugins**: install GitHub, then release it for the workspace.
+2. **Project settings → Plugins → GitHub**: confirm what it may do and
+   switch it on.
+3. The card **Webhooks from other services** shows an address and a
+   secret. In GitHub, open the repository (or the organization) →
+   **Settings → Webhooks → Add webhook**:
+   - **Payload URL**: the address
+   - **Content type**: `application/json`
+   - **Secret**: the secret
+   - **Let me select individual events**: Branch or tag creation, Branch or
+     tag deletion, Check runs, Check suites, Pull requests, Pull request
+     reviews, Pushes
+4. Each person who wants to create branches from Barynt adds a
+   **fine-grained token** under their personal settings → Plugins → GitHub:
+   _Contents_ read and write, _Pull requests_ and _Checks_ read, for the
+   team's repositories. It's only ever sent to `api.github.com`.
 
-The SDK isn't on npm yet. Put this folder next to a checkout of Barynt —
-`package.json` points to `../barynt/packages/plugin-sdk` — and build the SDK
-once:
+## How issues are found
 
-```bash
-git clone https://github.com/barynt-dev/barynt-web barynt
-git clone https://github.com/you/open-issues    # your copy of the template
-(cd barynt/packages/plugin-sdk && bun install && bun run build)
-cd open-issues && bun install
-```
-
-Then make it yours: `id`, `name`, `author` and `description` in
-`manifest.json` (and `name` in `package.json`). The id is lower-case
-letters, digits and `-`, and never changes once the plugin is out.
+Barynt looks for the project's issue keys in a pull request's branch,
+title and description, in commit messages and branch names: `WEB-42`,
+`web-42-fix-login` and `feature/WEB_42` all name WEB-42. Only keys of the
+project the plugin is on in count.
 
 ## Work on it
 
+The SDK comes from a Barynt checkout next to this folder
+(`../barynt/packages/plugin-sdk`):
+
 ```bash
+(cd ../barynt/packages/plugin-sdk && bun install && bun run build)
+bun install
 bun run dev        # builds dist/ on every change
-bun run test       # the tests
-bun run typecheck
+bun run test
+bun run lint && bun run typecheck
 ```
 
-In your local Barynt's `.env`, point to this folder and restart Barynt:
+In your local Barynt's `.env`: `PLUGIN_DEV_DIRS="/path/to/barynt-plugin-github"`,
+then install it under **Admin → Plugins → Sources → Local plugins**.
 
-```bash
-PLUGIN_DEV_DIRS="/path/to/open-issues"
-```
+## Release
 
-**Admin → Plugins → Sources → Local plugins**: install it. Release it for a
-workspace, switch it on in a project, and open _Open issues_ under the
-project's views. Barynt loads it from `dist/` on every load; after a build,
-open frames reload by themselves.
-
-## Release it
-
-```bash
-PLUGIN_REPO="https://github.com/you/open-issues" bun run release
-```
-
-This builds, copies the files to `release/<version>/`, prints the release
-hash and adds the version to `release/plugins.json`. Attach the files to a
-release tagged with the version (`0.1.0`, no `v`) and list the entry in a
-directory Barynt reads. A release is fixed: for a change, bump `version` in
-`manifest.json` first.
-
-With the CI workflow, pushing a tag does it: it checks the tag is the
-manifest's version, tests, builds and creates the GitHub release with the
-files. The hash is in the release's notes.
-
-## Its own server
-
-`server/index.ts` is a server built with `createService`: it gets the
-events the manifest subscribes to, signed, and answers through Barynt's
-API. Give the manifest a `service` and the matching `events:*` capability
-(see the comment at the top), then run it with `bun run server`.
-
-## More
-
-Barynt's developer docs: `docs/dev/plugins-*.md` — the manifest, the SDK,
-the host API, testing and publishing.
+`bun run release` builds, copies the files to `release/<version>/`, prints
+the release hash and adds the version to `release/plugins.json`. CI does
+the same for a pushed tag that matches the manifest's version and creates
+the GitHub release.

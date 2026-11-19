@@ -1,5 +1,5 @@
 {
-  "name": "open-issues",
+  "name": "barynt-plugin-github",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,10 +8,11 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "release": "bun scripts/build.ts && bun scripts/release.ts",
-    "server": "bun server/index.ts"
+    "lint": "biome check ."
   },
   "devDependencies": {
     "@barynt/plugin-sdk": "file:../barynt/packages/plugin-sdk",
+    "@biomejs/biome": "2.6.6",
     "@types/bun": "^1.4.4",
     "happy-dom": "21.0.4",
     "typescript": "7.0.2"

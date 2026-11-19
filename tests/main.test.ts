@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import type { Issue } from "@barynt/plugin-sdk";
 import { createTestHost, loadPlugin } from "@barynt/plugin-sdk/testing";
 import { Window } from "happy-dom";
-import OpenIssues from "../src/main";
-import { openIssues } from "../src/open";
+import manifest from "../manifest.json";
+import GitHub from "../src/main";
 
-// The plugin against the SDK's test host: what each call answers is said
-// here, every call is recorded. happy-dom stands in for the frame's DOM.
+// The plugin against the SDK's test host. Barynt reads GitHub's webhooks
+// itself (`handle: "link"`); the plugin draws what it keeps on the issues.
 
 const g = globalThis as { document?: unknown };
 let window: Window;
@@ -19,38 +18,23 @@ afterAll(async () => {
   await window.happyDOM.close();
 });
 
-const issue = (ref: string, statusCategory: Issue["statusCategory"]) =>
-  ({ id: ref, ref, title: `Title of ${ref}`, statusCategory }) as Issue;
-
-describe("openIssues", () => {
-  it("leaves out completed and canceled issues", () => {
-    const all = [
-      issue("WEB-1", "started"),
-      issue("WEB-2", "completed"),
-      issue("WEB-3", "canceled"),
-      issue("WEB-4", null),
-    ];
-    expect(openIssues(all).map((i) => i.ref)).toEqual(["WEB-1", "WEB-4"]);
+describe("the GitHub plugin", () => {
+  it("loads, and asks Barynt for nothing yet", async () => {
+    const host = createTestHost();
+    const { unload } = await loadPlugin(GitHub, host);
+    expect(host.calls).toEqual([]);
+    await unload();
   });
-});
 
-describe("the view", () => {
-  it("asks for the project's issues and lists the open ones", async () => {
-    const root = document.createElement("div");
-    const host = createTestHost({
-      root: root as unknown as HTMLElement,
-      context: { slot: { kind: "projectView", id: "open" } },
-      handlers: {
-        "issues.list": () => ({
-          issues: [issue("WEB-1", "started"), issue("WEB-2", "completed")],
-          nextCursor: null,
-        }),
+  it("lets Barynt read GitHub's webhooks, with no server of its own", () => {
+    expect(manifest.contributes.inboundHooks).toEqual([
+      {
+        id: "github",
+        title: "GitHub repository",
+        provider: "github",
+        handle: "link",
       },
-    });
-    await loadPlugin(OpenIssues, host);
-    expect(host.calls).toEqual([
-      { method: "issues.list", params: { take: 100 } },
     ]);
-    expect(root.textContent).toBe("WEB-1 · Title of WEB-1");
+    expect("service" in manifest).toBe(false);
   });
 });
