@@ -7,9 +7,18 @@ server to run: Barynt reads GitHub's webhooks itself and keeps what they
 say on the issues; this plugin draws it.
 
 > [!NOTE]
-> Work in progress (BARY-219). Done so far: the manifest, the webhook and
-> its rules. Next: the pull request's row on a card, the "Development"
-> panel, and creating a branch from an issue.
+> Work in progress (BARY-219). Done so far: the webhook, its rules and the
+> pull request's row on a card. Next: the "Development" panel and creating
+> a branch from an issue.
+
+## On the board
+
+A card whose issue has a pull request shows a row: its number, where it
+stands (_Draft_, _Open_, _Changes requested_, _Approved_, _Merged_,
+_Closed_), and while it's open, the checks of its branch as bars with the
+overall result. With several pull requests, the newest open one and "+n".
+The rows of a whole board come from one request to Barynt, never one to
+GitHub per card, and change on their own when GitHub reports.
 
 ## Set it up in a project
 

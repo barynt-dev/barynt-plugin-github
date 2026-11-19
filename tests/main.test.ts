@@ -19,10 +19,46 @@ afterAll(async () => {
 });
 
 describe("the GitHub plugin", () => {
-  it("loads, and asks Barynt for nothing yet", async () => {
-    const host = createTestHost();
-    const { unload } = await loadPlugin(GitHub, host);
-    expect(host.calls).toEqual([]);
+  it("answers a board's badges with one call for the whole batch", async () => {
+    const host = createTestHost({
+      context: { slot: { kind: "badges", id: "badges" } },
+      handlers: {
+        "issueData.list": () => ({
+          "i-1": [
+            {
+              key: "pr:acme:web:42",
+              value: {
+                kind: "pull_request",
+                repo: "acme/web",
+                number: 42,
+                title: "Keep the cookie",
+                state: "open",
+                review: "approved",
+                url: null,
+                branch: "web-1",
+                base: "main",
+                author: "ada",
+                additions: null,
+                deletions: null,
+                at: "2026-11-19T10:00:00Z",
+              },
+              updatedAt: "2026-11-19T10:00:00Z",
+            },
+          ],
+        }),
+      },
+    });
+    const { plugin, unload } = await loadPlugin(GitHub, host);
+    const badges = await host.badges([
+      { id: "i-1", ref: "WEB-1" },
+      { id: "i-2", ref: "WEB-2" },
+    ]);
+    expect(host.calls).toEqual([
+      { method: "issueData.list", params: { issueIds: ["i-1", "i-2"] } },
+    ]);
+    expect(Object.keys(badges)).toEqual(["i-1"]);
+    expect(badges["i-1"][0]).toMatchObject({ text: "#42 Approved" });
+    expect(plugin).toBeDefined();
     await unload();
   });
 
