@@ -7,9 +7,9 @@ server to run: Barynt reads GitHub's webhooks itself and keeps what they
 say on the issues; this plugin draws it.
 
 > [!NOTE]
-> Work in progress (BARY-219). Done so far: the manifest and the webhook.
-> Next: the pull request's row on a card, the "Development" panel, creating
-> a branch from an issue, and rules (merged → Done).
+> Work in progress (BARY-219). Done so far: the manifest, the webhook and
+> its rules. Next: the pull request's row on a card, the "Development"
+> panel, and creating a branch from an issue.
 
 ## Set it up in a project
 
@@ -29,6 +29,18 @@ say on the issues; this plugin draws it.
    **fine-grained token** under their personal settings → Plugins → GitHub:
    _Contents_ read and write, _Pull requests_ and _Checks_ read, for the
    team's repositories. It's only ever sent to `api.github.com`.
+
+## Rules
+
+Under the webhook in the plugin's settings, pick a status for each rule,
+or leave it off:
+
+- **When a pull request is opened** — e.g. _In Review_
+- **When a pull request is merged** — e.g. _Done_
+
+Barynt sets it as "GitHub (App)" and comments why — only for an issue the
+pull request works on: its key in the branch's name, or after _Fixes_,
+_Closes_ or _Resolves_ in the title or description.
 
 ## How issues are found
 

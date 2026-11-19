@@ -9,7 +9,12 @@
   "license": "MIT",
   "kind": "sandbox",
   "levels": ["project"],
-  "capabilities": ["issues:read", "webhooks:receive"],
+  "capabilities": [
+    "issues:read",
+    "issues:write",
+    "comments:write",
+    "webhooks:receive"
+  ],
   "network": ["api.github.com"],
   "contributes": {
     "credentials": [
@@ -27,7 +32,19 @@
         "id": "github",
         "title": "GitHub repository",
         "provider": "github",
-        "handle": "link"
+        "handle": "link",
+        "rules": [
+          {
+            "id": "opened",
+            "title": "When a pull request is opened",
+            "on": "pull_request.opened"
+          },
+          {
+            "id": "merged",
+            "title": "When a pull request is merged",
+            "on": "pull_request.merged"
+          }
+        ]
       }
     ]
   }
