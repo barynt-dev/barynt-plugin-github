@@ -8,8 +8,8 @@ say on the issues; this plugin draws it.
 
 > [!NOTE]
 > Work in progress (BARY-219). Done so far: the webhook, its rules, the
-> pull request's row on a card and the "Development" panel. Next: creating
-> a branch from an issue.
+> pull request's row on a card, the "Development" panel and the actions.
+> Next: checking the repositories against GitHub in the settings.
 
 ## On the board
 
@@ -58,6 +58,26 @@ the name, open it on GitHub), its pull requests with their state, checks,
 size and — with your own GitHub token — who reviewed, and the commits that
 name it (five, then "Show all"). A click on a card's pull request row opens
 the issue there.
+
+## Actions
+
+In an issue's menu ("…"), a card's quick actions and the command palette:
+
+- **Create branch** — in the project's first repository, from its default
+  branch, named after the pattern in the settings (`{user}/{key}-{title}`
+  by default: `ada/web-42-keep-the-cookie`); a taken name gets `-2`. With
+  your own token, so you're its author on GitHub. As the project set it,
+  the issue is then assigned to you and moved to a status. The panel has
+  the same button while the issue has no branch.
+- **Copy branch name** — the issue's branch, or the name it would get.
+- **Open pull request** — its open pull request, or GitHub's page to open
+  one for its branch, the title starting with the issue's key.
+
+## Settings
+
+Under **Project settings → Plugins → GitHub**: the repositories (`owner/repo`,
+one per line), the branch name's pattern, whether creating a branch assigns
+the issue, and which status it gets then.
 
 ## How issues are found
 

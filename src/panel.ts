@@ -5,7 +5,6 @@ import {
   card,
   copyField,
   diffStat,
-  emptyState,
   notice,
   row,
   sectionHeader,
@@ -14,6 +13,7 @@ import {
   text,
   user,
 } from "@barynt/plugin-sdk/ui";
+import { createBranchAction } from "./actions";
 import { COMMITS_SHOWN, development, latestReviews } from "./development";
 import type { PullRequest } from "./entries";
 import { prLook } from "./row";
@@ -131,14 +131,32 @@ export async function renderDevelopment(
   const parts: HTMLElement[] = [];
 
   parts.push(sectionHeader({ title: "Branch", icon: "git-branch" }));
-  if (dev.branches.length === 0)
-    parts.push(
+  if (dev.branches.length === 0) {
+    // No branch yet: make one here, with the person's token (BARY-230).
+    const status = stack(
       text({
-        text: "No branch names this issue yet. Put its key in a branch's name and GitHub's webhook links it.",
+        text: "No branch names this issue yet.",
         tone: "subtle",
         size: "sm",
       }),
     );
+    const create = button({
+      label: "Create branch",
+      icon: "git-branch",
+      size: "sm",
+      variant: "secondary",
+      onClick: async () => {
+        const result = await createBranchAction(api, issueId);
+        status.replaceChildren(
+          notice({
+            text: result.message ?? "Done.",
+            tone: result.tone === "success" ? "success" : "warning",
+          }),
+        );
+      },
+    });
+    parts.push(status, create);
+  }
   for (const b of dev.branches)
     parts.push(
       copyField({
@@ -200,20 +218,6 @@ export async function renderDevelopment(
     parts.push(list);
   }
 
-  if (
-    dev.branches.length === 0 &&
-    dev.pullRequests.length === 0 &&
-    dev.commits.length === 0
-  ) {
-    el.replaceChildren(
-      emptyState({
-        title: "Nothing from GitHub yet",
-        text: "Branches, pull requests and commits that name this issue show here.",
-        icon: "git-branch",
-      }),
-    );
-    return;
-  }
   const panel = stack(...parts);
   panel.style.padding = "0.75rem";
   el.replaceChildren(panel);
