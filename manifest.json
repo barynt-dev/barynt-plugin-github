@@ -1,16 +1,115 @@
 {
-  "id": "open-issues",
-  "name": "Open Issues",
-  "version": "0.1.0",
-  "minBaryntVersion": "1.0.0",
-  "author": "You",
-  "description": "The project's open issues at a glance.",
+  "id": "github",
+  "name": "GitHub",
+  "version": "0.1.0-beta.1",
+  "minBaryntVersion": "1.1.0-0",
+  "author": "Barynt",
+  "authorUrl": "https://github.com/barynt-dev",
+  "description": "Pull requests, branches, commits and checks on the issues they name. Rules move an issue along as its pull request does.",
   "license": "MIT",
   "kind": "sandbox",
   "levels": ["project"],
-  "capabilities": ["issues:read", "ui:project-view"],
-  "network": [],
+  "capabilities": [
+    "issues:read",
+    "issues:write",
+    "comments:write",
+    "webhooks:receive",
+    "ui:issue-badge",
+    "ui:issue-panel",
+    "ui:action"
+  ],
+  "network": ["api.github.com"],
   "contributes": {
-    "projectViews": [{ "id": "open", "title": "Open issues" }]
+    "issueBadges": [
+      {
+        "id": "pull-request",
+        "title": "Pull request"
+      }
+    ],
+    "issuePanels": [
+      {
+        "id": "development",
+        "title": "Development",
+        "placement": "sidebar"
+      }
+    ],
+    "actions": [
+      {
+        "id": "create-branch",
+        "title": "Create branch",
+        "icon": "lucide:git-branch",
+        "where": ["issueMenu", "cardMenu", "commandPalette"]
+      },
+      {
+        "id": "copy-branch-name",
+        "title": "Copy branch name",
+        "icon": "lucide:git-branch",
+        "where": ["issueMenu", "cardMenu", "commandPalette"]
+      },
+      {
+        "id": "open-pull-request",
+        "title": "Open pull request",
+        "icon": "lucide:git-pull-request",
+        "where": ["issueMenu", "commandPalette"]
+      }
+    ],
+    "settings": [
+      {
+        "key": "repositories",
+        "type": "textarea",
+        "label": "Repositories",
+        "description": "owner/repo, one per line. Branches are created in the first."
+      },
+      {
+        "key": "branchPattern",
+        "type": "text",
+        "label": "Branch name",
+        "description": "{user} is the GitHub login, {key} the issue's key, {title} its title. Keep {key}: it's how Barynt finds the issue.",
+        "default": "{user}/{key}-{title}"
+      },
+      {
+        "key": "branchAssign",
+        "type": "boolean",
+        "label": "Assign the issue to whoever creates its branch",
+        "default": true
+      },
+      {
+        "key": "branchStatus",
+        "type": "status",
+        "label": "Status when a branch is created",
+        "description": "Leave empty to keep the status."
+      }
+    ],
+    "credentials": [
+      {
+        "key": "githubToken",
+        "label": "GitHub token",
+        "description": "A fine-grained token for the team's repositories: Contents read and write (for branches), Pull requests and Checks read. Only ever sent to api.github.com.",
+        "level": "user",
+        "host": "api.github.com",
+        "format": "Bearer {value}"
+      }
+    ],
+    "inboundHooks": [
+      {
+        "id": "github",
+        "title": "GitHub repository",
+        "provider": "github",
+        "handle": "link",
+        "rules": [
+          {
+            "id": "opened",
+            "title": "When a pull request is opened",
+            "on": "pull_request.opened"
+          },
+          {
+            "id": "merged",
+            "title": "When a pull request is merged",
+            "on": "pull_request.merged"
+          }
+        ]
+      }
+    ],
+    "settingsPage": "section"
   }
 }

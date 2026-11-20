@@ -1,26 +1,54 @@
 import { Plugin } from "@barynt/plugin-sdk";
-import { openIssues } from "./open";
+import {
+  copyBranchNameAction,
+  createBranchAction,
+  openPullRequestAction,
+} from "./actions";
+import { renderDevelopment } from "./panel";
+import { pullRequestRow } from "./row";
+import { renderSection } from "./section";
 
-// One class, exported as the default: Barynt creates it in the plugin's
-// frame and calls `onload()`. What's registered here is undone on its own
-// when the plugin unloads.
-export default class OpenIssues extends Plugin {
-  async onload() {
-    this.registerProjectView({
-      // The id from `contributes.projectViews` in manifest.json.
-      id: "open",
-      render: async (el) => {
-        const { issues } = await this.api.issues.list({ take: 100 });
-        const list = document.createElement("ul");
-        list.className = "open-issues";
-        for (const issue of openIssues(issues)) {
-          const item = document.createElement("li");
-          // `textContent`, never `innerHTML`: a title is text someone typed.
-          item.textContent = `${issue.ref} · ${issue.title}`;
-          list.append(item);
-        }
-        el.replaceChildren(list);
+// The plugin's part in Barynt's frames: it draws what Barynt keeps on the
+// issues from GitHub's webhooks — the pull request's row on a card
+// (BARY-228), the "Development" panel in the issue (BARY-229) — its
+// actions on an issue (BARY-230), and a check of its settings (BARY-231).
+export default class GitHub extends Plugin {
+  onload() {
+    // One call for the whole batch of cards, never one to GitHub per card.
+    this.registerBadges({
+      provide: async (issues) => {
+        const data = await this.api.issueData.list(issues.map((i) => i.id));
+        return Object.fromEntries(
+          issues.flatMap((issue) => {
+            const row = pullRequestRow(data[issue.id] ?? []);
+            return row ? [[issue.id, [row]]] : [];
+          }),
+        );
       },
+    });
+    this.registerIssuePanel({
+      id: "development",
+      render: async (el, { issueId }) => {
+        if (issueId) await renderDevelopment(this.api, el, issueId);
+      },
+    });
+    const onIssue =
+      (run: (issueId: string) => Promise<object>) =>
+      async ({ issueId }: { issueId: string | null }) =>
+        issueId ? run(issueId) : { message: "Pick an issue first." };
+    // Below Barynt's settings form: the repositories, checked on GitHub.
+    this.registerSettings({ render: (el) => renderSection(this.api, el) });
+    this.registerAction({
+      id: "create-branch",
+      run: onIssue((id) => createBranchAction(this.api, id)),
+    });
+    this.registerAction({
+      id: "copy-branch-name",
+      run: onIssue((id) => copyBranchNameAction(this.api, id)),
+    });
+    this.registerAction({
+      id: "open-pull-request",
+      run: onIssue((id) => openPullRequestAction(this.api, id)),
     });
   }
 }

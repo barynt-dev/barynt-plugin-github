@@ -37,6 +37,9 @@ jobs:
       - name: Install
         working-directory: plugin
         run: bun install
+      - name: Lint
+        working-directory: plugin
+        run: bun run lint
       - name: Typecheck
         working-directory: plugin
         run: bun run typecheck
@@ -57,5 +60,7 @@ jobs:
           test "$(jq -r .version manifest.json)" = "$GITHUB_REF_NAME" \
             || { echo "The tag must be the manifest's version"; exit 1; }
           bun scripts/release.ts | tee release.txt
+          # A version with a pre-release part (`0.1.0-beta.1`) is a pre-release.
+          case "$GITHUB_REF_NAME" in *-*) PRE=--prerelease ;; *) PRE= ;; esac
           gh release create "$GITHUB_REF_NAME" release/"$GITHUB_REF_NAME"/* \
-            --title "$GITHUB_REF_NAME" --notes-file release.txt
+            --title "$GITHUB_REF_NAME" --notes-file release.txt $PRE
