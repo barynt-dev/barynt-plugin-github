@@ -1,10 +1,16 @@
 import { Plugin } from "@barynt/plugin-sdk";
+import {
+  copyBranchNameAction,
+  createBranchAction,
+  openPullRequestAction,
+} from "./actions";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
 
 // The plugin's part in Barynt's frames: it draws what Barynt keeps on the
 // issues from GitHub's webhooks — the pull request's row on a card
-// (BARY-228) and the "Development" panel in the issue (BARY-229).
+// (BARY-228), the "Development" panel in the issue (BARY-229) — and its
+// actions on an issue (BARY-230).
 export default class GitHub extends Plugin {
   onload() {
     // One call for the whole batch of cards, never one to GitHub per card.
@@ -24,6 +30,22 @@ export default class GitHub extends Plugin {
       render: async (el, { issueId }) => {
         if (issueId) await renderDevelopment(this.api, el, issueId);
       },
+    });
+    const onIssue =
+      (run: (issueId: string) => Promise<object>) =>
+      async ({ issueId }: { issueId: string | null }) =>
+        issueId ? run(issueId) : { message: "Pick an issue first." };
+    this.registerAction({
+      id: "create-branch",
+      run: onIssue((id) => createBranchAction(this.api, id)),
+    });
+    this.registerAction({
+      id: "copy-branch-name",
+      run: onIssue((id) => copyBranchNameAction(this.api, id)),
+    });
+    this.registerAction({
+      id: "open-pull-request",
+      run: onIssue((id) => openPullRequestAction(this.api, id)),
     });
   }
 }
