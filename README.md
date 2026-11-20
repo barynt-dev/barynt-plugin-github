@@ -8,7 +8,7 @@ say on the issues; this plugin draws it.
 
 > [!NOTE]
 > **0.1.0-beta.1** — the first pre-release. It needs Barynt 1.1.0 or later,
-> the first version with plugins.
+> the first version with plugins — its betas (`1.1.0-beta.1` …) included.
 
 ## On the board
 
