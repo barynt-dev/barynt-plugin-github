@@ -7,9 +7,8 @@ server to run: Barynt reads GitHub's webhooks itself and keeps what they
 say on the issues; this plugin draws it.
 
 > [!NOTE]
-> Work in progress (BARY-219). Done so far: the webhook, its rules, the
-> pull request's row on a card, the "Development" panel, the actions and
-> the settings. Next: the first release.
+> **0.1.0-beta.1** — the first pre-release. It needs Barynt 1.1.0 or later,
+> the first version with plugins.
 
 ## On the board
 
@@ -22,7 +21,9 @@ GitHub per card, and change on their own when GitHub reports.
 
 ## Set it up in a project
 
-1. **Admin → Plugins**: install GitHub, then release it for the workspace.
+1. **Admin → Plugins**: install GitHub from the official directory
+   ([barynt-plugin-store](https://github.com/barynt-dev/barynt-plugin-store)),
+   then release it for the workspace.
 2. **Project settings → Plugins → GitHub**: confirm what it may do and
    switch it on.
 3. The card **Webhooks from other services** shows an address and a

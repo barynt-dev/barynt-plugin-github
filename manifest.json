@@ -1,8 +1,8 @@
 {
   "id": "github",
   "name": "GitHub",
-  "version": "0.1.0",
-  "minBaryntVersion": "1.0.0",
+  "version": "0.1.0-beta.1",
+  "minBaryntVersion": "1.1.0",
   "author": "Barynt",
   "authorUrl": "https://github.com/barynt-dev",
   "description": "Pull requests, branches, commits and checks on the issues they name. Rules move an issue along as its pull request does.",
