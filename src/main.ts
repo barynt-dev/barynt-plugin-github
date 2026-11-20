@@ -6,11 +6,12 @@ import {
 } from "./actions";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
+import { renderSection } from "./section";
 
 // The plugin's part in Barynt's frames: it draws what Barynt keeps on the
 // issues from GitHub's webhooks — the pull request's row on a card
-// (BARY-228), the "Development" panel in the issue (BARY-229) — and its
-// actions on an issue (BARY-230).
+// (BARY-228), the "Development" panel in the issue (BARY-229) — its
+// actions on an issue (BARY-230), and a check of its settings (BARY-231).
 export default class GitHub extends Plugin {
   onload() {
     // One call for the whole batch of cards, never one to GitHub per card.
@@ -35,6 +36,8 @@ export default class GitHub extends Plugin {
       (run: (issueId: string) => Promise<object>) =>
       async ({ issueId }: { issueId: string | null }) =>
         issueId ? run(issueId) : { message: "Pick an issue first." };
+    // Below Barynt's settings form: the repositories, checked on GitHub.
+    this.registerSettings({ render: (el) => renderSection(this.api, el) });
     this.registerAction({
       id: "create-branch",
       run: onIssue((id) => createBranchAction(this.api, id)),

@@ -8,8 +8,8 @@ say on the issues; this plugin draws it.
 
 > [!NOTE]
 > Work in progress (BARY-219). Done so far: the webhook, its rules, the
-> pull request's row on a card, the "Development" panel and the actions.
-> Next: checking the repositories against GitHub in the settings.
+> pull request's row on a card, the "Development" panel, the actions and
+> the settings. Next: the first release.
 
 ## On the board
 
@@ -78,6 +78,12 @@ In an issue's menu ("…"), a card's quick actions and the command palette:
 Under **Project settings → Plugins → GitHub**: the repositories (`owner/repo`,
 one per line), the branch name's pattern, whether creating a branch assigns
 the issue, and which status it gets then.
+
+Below the form, **Repositories on GitHub** checks each saved repository
+with your token: _Ready_, _Read only_ (no branches), _Not found for your
+token_, or that GitHub doesn't accept the token — and shows what a
+branch's name will look like. When the webhook last called is on Barynt's
+card below it.
 
 ## How issues are found
 
