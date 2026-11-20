@@ -14,7 +14,7 @@ they say on the issues; this plugin draws it.
 ![Pull requests on the board](preview-1.webp)
 
 > [!NOTE]
-> **0.1.0-beta.2** — a pre-release. It needs Barynt 1.1.0-beta.2 or later.
+> **0.1.0-beta.3** — a pre-release. It needs Barynt 1.1.0-beta.5 or later.
 
 ## On the board
 
