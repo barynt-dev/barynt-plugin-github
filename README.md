@@ -1,14 +1,20 @@
 # GitHub for Barynt
 
-Pull requests, branches, commits and checks on the issues they name, in
-[Barynt](https://github.com/barynt-dev/barynt-web). A pull request whose
-branch, title or description says `WEB-42` shows on issue WEB-42 — no
-server to run: Barynt reads GitHub's webhooks itself and keeps what they
-say on the issues; this plugin draws it.
+<img src="logo.png" alt="" width="72" align="right">
+
+Your GitHub work on the issues it's about, in
+[Barynt](https://github.com/barynt-dev/barynt-web): every board card shows its
+pull request with reviews and checks, the issue gets a **Development** panel
+with branch, commits and checks, rules move it to _In Review_ or _Done_ as the
+pull request opens and merges, and a branch starts right from the issue.
+
+There's no server to run: Barynt reads GitHub's webhooks itself and keeps what
+they say on the issues; this plugin draws it.
+
+![Pull requests on the board](preview-1.webp)
 
 > [!NOTE]
-> **0.1.0-beta.1** — the first pre-release. It needs Barynt 1.1.0 or later,
-> the first version with plugins — its betas (`1.1.0-beta.1` …) included.
+> **0.1.0-beta.2** — a pre-release. It needs Barynt 1.1.0-beta.2 or later.
 
 ## On the board
 
@@ -42,6 +48,8 @@ GitHub per card, and change on their own when GitHub reports.
 
 ## Rules
 
+![The webhook and its rules](preview-3.webp)
+
 Under the webhook in the plugin's settings, pick a status for each rule,
 or leave it off:
 
@@ -53,6 +61,8 @@ pull request works on: its key in the branch's name, or after _Fixes_,
 _Closes_ or _Resolves_ in the title or description.
 
 ## In the issue
+
+![The Development panel in the issue](preview-2.webp)
 
 The **Development** panel in the issue's sidebar shows its branch (copy
 the name, open it on GitHub), its pull requests with their state, checks,
@@ -115,3 +125,9 @@ then install it under **Admin → Plugins → Sources → Local plugins**.
 the release hash and adds the version to `release/plugins.json`. CI does
 the same for a pushed tag that matches the manifest's version and creates
 the GitHub release.
+
+## Pictures
+
+`logo.png` comes from `assets/logo.svg`, the previews from the screenshots in
+`assets/screenshots/`: `bun scripts/images.ts` makes both. The logo is the
+pull-request mark of [Lucide](https://lucide.dev) (ISC).

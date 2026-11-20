@@ -16,7 +16,8 @@ const names = (await readdir("dist"))
   .filter(
     (name) =>
       ["manifest.json", "main.js", "styles.css"].includes(name) ||
-      /^preview-[1-6]\.(webp|png)$/.test(name),
+      /^preview-[1-6]\.(webp|png)$/.test(name) ||
+      /^logo\.(webp|png)$/.test(name),
   )
   .sort();
 

@@ -1,11 +1,17 @@
 {
   "id": "github",
   "name": "GitHub",
-  "version": "0.1.0-beta.1",
-  "minBaryntVersion": "1.1.0-0",
+  "version": "0.1.0-beta.2",
+  "minBaryntVersion": "1.1.0-beta.2",
   "author": "Barynt",
   "authorUrl": "https://github.com/barynt-dev",
-  "description": "Pull requests, branches, commits and checks on the issues they name. Rules move an issue along as its pull request does.",
+  "description": "Your GitHub work on the issues it's about: each card shows its pull request with reviews and checks, the issue gets a Development panel with branch, commits and checks, rules move it to In Review or Done as the pull request opens and merges, and a branch starts right from the issue.",
+  "locales": {
+    "de": {
+      "description": "Deine GitHub-Arbeit an den Issues, um die es geht: Karten zeigen ihren Pull Request mit Reviews und Checks, das Issue ein Panel „Development“ mit Branch, Commits und Checks. Regeln setzen es auf In Review oder Done, wenn der Pull Request geöffnet oder gemergt wird. Branches entstehen im Issue."
+    }
+  },
+  "logo": "logo.png",
   "license": "MIT",
   "kind": "sandbox",
   "levels": ["project"],
@@ -111,5 +117,19 @@
       }
     ],
     "settingsPage": "section"
-  }
+  },
+  "previews": [
+    {
+      "file": "preview-1.webp",
+      "title": "Pull requests on the board"
+    },
+    {
+      "file": "preview-2.webp",
+      "title": "Development panel in the issue"
+    },
+    {
+      "file": "preview-3.webp",
+      "title": "Webhook and rules"
+    }
+  ]
 }
