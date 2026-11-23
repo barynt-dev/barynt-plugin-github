@@ -52,25 +52,6 @@ const en = {
   pullRequests: "Pull requests",
   commits: "Commits",
   showAll: "Show all {count}",
-
-  // The settings section (BARY-231)
-  checking: "Checking…",
-  checkAgain: "Check again",
-  reposOnGitHub: "Repositories on GitHub",
-  tickRepos:
-    "Tick the repositories above and save — the plugin creates branches in the first one.",
-  fromBranch: "from {branch}",
-  branches: "Branches",
-  private: "private",
-  public: "public",
-  you: "you",
-  examplePreview: 'A branch for {key} "{title}" is named {name}.',
-  exampleTitle: "Keep the session cookie",
-  ready: "Ready",
-  readOnly: "Read only — no branches",
-  notFound: "Not found — not shared with the app",
-  badToken: "GitHub doesn't accept the token",
-  connectToCheck: "Connect GitHub above to check",
 };
 
 export const t = translator({
@@ -99,7 +80,7 @@ export const t = translator({
     merged: "Gemergt",
     closed: "Geschlossen",
     draft: "Entwurf",
-    changesRequested: "Änderungen angefragt",
+    changesRequested: "Änderungen gewünscht",
     approved: "Freigegeben",
     open: "Offen",
 
@@ -120,23 +101,5 @@ export const t = translator({
     pullRequests: "Pull Requests",
     commits: "Commits",
     showAll: "Alle {count} anzeigen",
-
-    checking: "Wird geprüft…",
-    checkAgain: "Erneut prüfen",
-    reposOnGitHub: "Repositories auf GitHub",
-    tickRepos:
-      "Wähle oben die Repositories aus und speichere – das Plugin erstellt Branches im ersten.",
-    fromBranch: "von {branch}",
-    branches: "Branches",
-    private: "privat",
-    public: "öffentlich",
-    you: "du",
-    examplePreview: "Ein Branch für {key} „{title}“ heißt {name}.",
-    exampleTitle: "Session-Cookie behalten",
-    ready: "Bereit",
-    readOnly: "Nur lesen – keine Branches",
-    notFound: "Nicht gefunden – nicht für die App freigegeben",
-    badToken: "GitHub akzeptiert das Token nicht",
-    connectToCheck: "Verbinde GitHub oben, um zu prüfen",
   },
 });

@@ -103,11 +103,9 @@ connected, the repositories (ticked from what they share), the branch
 name's pattern, whether creating a branch assigns
 the issue, and which status it gets then.
 
-Below the form, **Repositories on GitHub** checks each saved repository
-(with your token, or the connection): _Ready_, _Read only_ (no branches), _Not found for your
-token_, or that GitHub doesn't accept the token — and shows what a
-branch's name will look like. When the webhook last called is on Barynt's
-card below it.
+The repositories come from the GitHub accounts connected in the workspace
+or the project; one that can't be reached any more is marked there. When
+the webhook last called is on Barynt's card below the form.
 
 ## How issues are found
 

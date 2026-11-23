@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { t } from "../src/i18n";
-import { describeCheck } from "../src/repositories";
 import { prLook } from "../src/row";
 
 // The plugin's own texts follow the frame's language (`<html lang>`, set by
@@ -30,9 +29,7 @@ describe("texts", () => {
   it("are German in a German frame", () => {
     inLanguage("de");
     expect(prLook(pr).text).toBe("Gemergt");
-    expect(describeCheck({ repo: "acme/web", state: "missing" }).text).toBe(
-      "Nicht gefunden – nicht für die App freigegeben",
-    );
+    expect(t("showAll", { count: 4 })).toBe("Alle 4 anzeigen");
     expect(t("branchCreated", { name: "x", repo: "acme/web" })).toBe(
       "Branch x in acme/web erstellt.",
     );
