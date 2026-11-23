@@ -5,14 +5,18 @@
   "minBaryntVersion": "1.1.0-beta.5",
   "author": "Barynt",
   "authorUrl": "https://github.com/barynt-dev",
-  "description": "Pull requests, branches and checks on the issues they belong to: on the board, in the issue, and with rules that move the issue along.",
+  "description": {
+    "short": "Pull requests, branches and checks on the issues they belong to: on the board, in the issue, and with rules that move the issue along.",
+    "about": "about.md"
+  },
   "locales": {
     "de": {
-      "description": "Pull Requests, Branches und Checks direkt an ihren Issues: auf dem Board, im Issue und mit Regeln, die das Issue weitersetzen.",
-      "about": "Bring deine GitHub-Arbeit an die Issues, um die es geht. Barynt liest die Webhooks von GitHub selbst — **du brauchst keinen eigenen Server** — und dieses Plugin zeigt, was darin steht.\n\n## Auf dem Board\n\nJede Karte mit Pull Request zeigt eine Zeile: seine Nummer, seinen Stand (*Entwurf*, *Offen*, *Änderungen gewünscht*, *Freigegeben*, *Gemergt*) und, solange er offen ist, die Checks seines Branches. Ein ganzes Board kommt mit einer Anfrage an Barynt aus, nie einer an GitHub pro Karte, und aktualisiert sich von selbst, wenn GitHub meldet.\n\n## Im Issue\n\nDas Panel **Development** zeigt:\n\n- den Branch — Namen kopieren oder auf GitHub öffnen\n- die Pull Requests mit Stand, Checks, Umfang und Reviewern\n- die Commits, die das Issue nennen\n\n## Regeln\n\nWähle einen Status für *Pull Request geöffnet* und *Pull Request gemergt* — etwa *In Review* und *Done*. Barynt setzt ihn als „GitHub (App)“ und kommentiert, warum, aber nur bei Issues, an denen der Pull Request wirklich arbeitet: der Schlüssel im Branch-Namen oder nach *Fixes*, *Closes* oder *Resolves*.\n\n## Aktionen\n\nIm Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erstellen** (benannt nach dem Muster deines Projekts, z. B. `ada/web-42-fix-login`), **Branch-Namen kopieren** und **Pull Request öffnen**.\n\n## Einrichten\n\n1. Schalte das Plugin im Projekt ein.\n2. Trag den angezeigten Webhook in deinem Repository oder deiner Organisation ein.\n3. Optional: Jede Person hinterlegt ein Fine-grained Token, um Branches zu erstellen und Reviewer zu sehen.\n\nTokens werden verschlüsselt gespeichert und nur an `api.github.com` geschickt."
+      "description": {
+        "short": "Pull Requests, Branches und Checks direkt an ihren Issues: auf dem Board, im Issue und mit Regeln, die das Issue weitersetzen.",
+        "about": "about.de.md"
+      }
     }
   },
-  "about": "Bring your GitHub work to the issues it's about. Barynt reads GitHub's webhooks itself — **there's no server to run** — and this plugin shows what they say.\n\n## On the board\n\nEvery card with a pull request shows a row: its number, where it stands (*Draft*, *Open*, *Changes requested*, *Approved*, *Merged*) and, while it's open, the checks of its branch. A whole board comes from one request to Barynt, never one to GitHub per card, and updates on its own when GitHub reports.\n\n## In the issue\n\nThe **Development** panel shows:\n\n- the branch — copy its name or open it on GitHub\n- the pull requests with state, checks, size and reviewers\n- the commits that name the issue\n\n## Rules\n\nPick a status for *a pull request is opened* and *a pull request is merged* — say *In Review* and *Done*. Barynt sets it as \"GitHub (App)\" and comments why, but only for issues the pull request really works on: the key in the branch name, or after *Fixes*, *Closes* or *Resolves*.\n\n## Actions\n\nFrom an issue's menu, a card or the command palette: **Create branch** (named after your project's pattern, e.g. `ada/web-42-fix-login`), **Copy branch name** and **Open pull request**.\n\n## Setup\n\n1. Switch the plugin on in the project.\n2. Add the webhook it shows to your repository or organization.\n3. Optional: each person adds a fine-grained token, to create branches and see reviewers.\n\nTokens are stored encrypted and only ever sent to `api.github.com`.",
   "links": [
     {
       "kind": "docs",
