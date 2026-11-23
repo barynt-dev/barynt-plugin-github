@@ -34,7 +34,29 @@
           },
           "branchPattern": {
             "label": "Branch-Name",
-            "description": "{user} ist der GitHub-Login, {key} der Schlüssel des Issues, {title} sein Titel. Behalte {key}: Daran erkennt Barynt das Issue."
+            "description": "{type} ist feature, bugfix oder chore je nach Issue-Typ, {user} der GitHub-Login, {key} der Schlüssel des Issues, {title} sein Titel. Behalte {key}: Daran erkennt Barynt das Issue.",
+            "suggestions": {
+              "type-key-title": {
+                "label": "Typ, Schlüssel und Titel (empfohlen)",
+                "hint": "feature/web-42-session-cookie-behalten"
+              },
+              "key-title": {
+                "label": "Schlüssel und Titel",
+                "hint": "web-42-session-cookie-behalten – wie Jira und GitHub"
+              },
+              "user-key-title": {
+                "label": "Login, Schlüssel und Titel",
+                "hint": "ada/web-42-session-cookie-behalten – wie Linear"
+              },
+              "type-key": {
+                "label": "Typ und Schlüssel",
+                "hint": "feature/web-42 – kurz"
+              },
+              "key": {
+                "label": "Nur Schlüssel",
+                "hint": "web-42 – am kürzesten"
+              }
+            }
           },
           "branchAssign": "Issue der Person zuweisen, die seinen Branch erstellt",
           "branchStatus": {
@@ -149,8 +171,40 @@
         "key": "branchPattern",
         "type": "text",
         "label": "Branch name",
-        "description": "{user} is the GitHub login, {key} the issue's key, {title} its title. Keep {key}: it's how Barynt finds the issue.",
-        "default": "{user}/{key}-{title}"
+        "description": "{type} is feature, bugfix or chore by the issue's type, {user} the GitHub login, {key} the issue's key, {title} its title. Keep {key}: it's how Barynt finds the issue.",
+        "default": "{type}/{key}-{title}",
+        "suggestions": [
+          {
+            "id": "type-key-title",
+            "value": "{type}/{key}-{title}",
+            "label": "Type, key and title (recommended)",
+            "hint": "feature/web-42-keep-the-session-cookie"
+          },
+          {
+            "id": "key-title",
+            "value": "{key}-{title}",
+            "label": "Key and title",
+            "hint": "web-42-keep-the-session-cookie — like Jira and GitHub"
+          },
+          {
+            "id": "user-key-title",
+            "value": "{user}/{key}-{title}",
+            "label": "Login, key and title",
+            "hint": "ada/web-42-keep-the-session-cookie — like Linear"
+          },
+          {
+            "id": "type-key",
+            "value": "{type}/{key}",
+            "label": "Type and key",
+            "hint": "feature/web-42 — short"
+          },
+          {
+            "id": "key",
+            "value": "{key}",
+            "label": "Key only",
+            "hint": "web-42 — shortest"
+          }
+        ]
       },
       {
         "key": "branchAssign",

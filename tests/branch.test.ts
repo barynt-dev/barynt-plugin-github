@@ -28,8 +28,23 @@ describe("a branch's name (BARY-230)", () => {
       }),
     ).toBe("feature/web-1.x");
     expect(branchName("", { user: "a", key: "WEB-1", title: "T" })).toBe(
-      "a/web-1-t",
+      "feature/web-1-t",
     );
+  });
+
+  it("names the kind of work by the issue's type", () => {
+    const name = (type: string) =>
+      branchName("{type}/{key}-{title}", {
+        user: "ada",
+        key: "WEB-42",
+        title: "Keep the session",
+        type,
+      });
+    expect(name("bug")).toBe("bugfix/web-42-keep-the-session");
+    expect(name("chore")).toBe("chore/web-42-keep-the-session");
+    expect(name("feature")).toBe("feature/web-42-keep-the-session");
+    expect(name("task")).toBe("feature/web-42-keep-the-session");
+    expect(name("")).toBe("feature/web-42-keep-the-session");
   });
 
   it("cuts a long title at a word", () => {

@@ -18,7 +18,7 @@ Wähle einen Status für _Pull Request geöffnet_ und _Pull Request gemergt_ —
 
 ## Aktionen
 
-Im Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erstellen** (benannt nach dem Muster deines Projekts, z. B. `ada/web-42-fix-login`), **Branch-Namen kopieren** und **Pull Request öffnen**.
+Im Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erstellen** (benannt nach dem Muster deines Projekts, z. B. `feature/web-42-fix-login`), **Branch-Namen kopieren** und **Pull Request öffnen**.
 
 ## Einrichten
 

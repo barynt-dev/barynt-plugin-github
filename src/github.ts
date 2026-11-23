@@ -61,7 +61,12 @@ export async function proposedName(
     const me = await github<{ login?: string }>(api, "/user");
     user = me.data?.login ?? "";
   } catch {}
-  return branchName(pattern, { user, key: issue.ref, title: issue.title });
+  return branchName(pattern, {
+    user,
+    key: issue.ref,
+    title: issue.title,
+    type: issue.type,
+  });
 }
 
 /**

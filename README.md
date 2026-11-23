@@ -47,8 +47,8 @@ team.
 
 **Your own token (optional):** a fine-grained token under your personal
 settings → Plugins → GitHub (_Contents_ read and write, _Pull requests_ and
-_Checks_ read) puts your GitHub login into branch names and shows who
-reviewed. Without it, the plugin works through the connection — on the
+_Checks_ read) can put your GitHub login into branch names (`{user}`) and
+shows who reviewed. Without it, the plugin works through the connection — on the
 ticked repositories only. It's only ever sent to `api.github.com`.
 
 **Without the app:** type the repositories (`owner/repo`, one per line),
@@ -86,8 +86,8 @@ the issue there.
 In an issue's menu ("…"), a card's quick actions and the command palette:
 
 - **Create branch** — in the project's first repository, from its default
-  branch, named after the pattern in the settings (`{user}/{key}-{title}`
-  by default: `ada/web-42-keep-the-cookie`); a taken name gets `-2`. With
+  branch, named after the pattern in the settings (`{type}/{key}-{title}`
+  by default: `feature/web-42-keep-the-cookie`); a taken name gets `-2`. With
   your own token if you keep one, else through the connection. As the
   project set it,
   the issue is then assigned to you and moved to a status. The panel has
@@ -102,6 +102,22 @@ Under **Project settings → Plugins → GitHub**: the GitHub accounts
 connected, the repositories (ticked from what they share), the branch
 name's pattern, whether creating a branch assigns
 the issue, and which status it gets then.
+
+The branch name's pattern is free to type, or picked from **Suggestions**:
+
+| Suggestion | Pattern | Example |
+| --- | --- | --- |
+| Type, key and title (default) | `{type}/{key}-{title}` | `feature/web-42-keep-the-cookie` |
+| Key and title | `{key}-{title}` | `web-42-keep-the-cookie` (like Jira, GitHub) |
+| Login, key and title | `{user}/{key}-{title}` | `ada/web-42-keep-the-cookie` (like Linear) |
+| Type and key | `{type}/{key}` | `feature/web-42` |
+| Key only | `{key}` | `web-42` |
+
+`{type}` is `bugfix` for a bug, `chore` for a chore and `feature` for
+everything else — the prefixes of the [Conventional Branch](https://conventional-branch.github.io/)
+spec. `<type>/<ticket>-<description>` is the most common convention, and
+keeps branches sorted by kind. Whatever the pattern, keep `{key}`: it's how
+Barynt finds the issue.
 
 The repositories come from the GitHub accounts connected in the workspace
 or the project; one that can't be reached any more is marked there. When

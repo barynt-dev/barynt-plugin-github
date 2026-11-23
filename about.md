@@ -18,7 +18,7 @@ Pick a status for _a pull request is opened_ and _a pull request is merged_ — 
 
 ## Actions
 
-From an issue's menu, a card or the command palette: **Create branch** (named after your project's pattern, e.g. `ada/web-42-fix-login`), **Copy branch name** and **Open pull request**.
+From an issue's menu, a card or the command palette: **Create branch** (named after your project's pattern, e.g. `feature/web-42-fix-login`), **Copy branch name** and **Open pull request**.
 
 ## Setup
 

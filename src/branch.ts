@@ -1,9 +1,20 @@
 // Naming a branch for an issue (BARY-230): the project's pattern with the
-// person's GitHub login, the issue's key and its title — and the
-// repositories the project works in. Pure, no GitHub.
+// kind of work, the person's GitHub login, the issue's key and its title —
+// and the repositories the project works in. Pure, no GitHub.
 
-/** The pattern when the project sets none. */
-export const DEFAULT_PATTERN = "{user}/{key}-{title}";
+/** The pattern when the project sets none — the common convention
+ *  `<type>/<ticket>-<description>`: `feature/web-42-keep-the-session`. */
+export const DEFAULT_PATTERN = "{type}/{key}-{title}";
+
+/** `{type}`: the issue's type as a branch prefix — a bug is a `bugfix`, a
+ *  chore a `chore`, everything else (feature, improvement, task, own
+ *  types) a `feature`. The prefixes of the Conventional Branch spec. */
+export function branchType(issueType: string): string {
+  const type = issueType.toLowerCase();
+  if (type === "bug") return "bugfix";
+  if (type === "chore") return "chore";
+  return "feature";
+}
 
 /** A title as a branch name's part: lower case, ascii, words by "-". */
 export function slug(text: string, max = 40): string {
@@ -20,15 +31,17 @@ export function slug(text: string, max = 40): string {
 }
 
 /**
- * The branch's name: `{user}`, `{key}` (`web-42`) and `{title}` filled in,
+ * The branch's name: `{type}` (`feature`), `{user}`, `{key}` (`web-42`) and
+ * `{title}` filled in,
  * then made a valid Git ref — no spaces, no `..`, no `~^:?*[\\`, no empty
  * parts, no `.lock` or `/` at the end.
  */
 export function branchName(
   pattern: string,
-  parts: { user: string; key: string; title: string },
+  parts: { user: string; key: string; title: string; type?: string },
 ): string {
   const filled = (pattern.trim() || DEFAULT_PATTERN)
+    .replaceAll("{type}", branchType(parts.type ?? ""))
     .replaceAll("{user}", parts.user.toLowerCase())
     .replaceAll("{key}", parts.key.toLowerCase())
     .replaceAll("{title}", slug(parts.title));
