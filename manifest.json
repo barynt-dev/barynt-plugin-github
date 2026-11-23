@@ -1,7 +1,7 @@
 {
   "id": "github",
   "name": "GitHub",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "minBaryntVersion": "1.1.0-beta.5",
   "author": "Barynt",
   "authorUrl": "https://github.com/barynt-dev",
