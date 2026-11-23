@@ -7,6 +7,7 @@ import type {
 } from "@barynt/plugin-sdk";
 import type { CheckState, Checks, PullRequest } from "./entries";
 import { sortEntries } from "./entries";
+import { t } from "./i18n";
 
 // The pull request's row on a board card (BARY-228): its number, where it
 // stands, its checks as bars and the overall result. With several, the
@@ -19,20 +20,20 @@ export function prLook(pr: PullRequest): {
   icon: BadgeIcon;
 } {
   if (pr.state === "merged")
-    return { text: "Merged", tone: "primary", icon: "git-merge" };
+    return { text: t("merged"), tone: "primary", icon: "git-merge" };
   if (pr.state === "closed")
-    return { text: "Closed", tone: "danger", icon: "circle-x" };
+    return { text: t("closed"), tone: "danger", icon: "circle-x" };
   if (pr.state === "draft")
-    return { text: "Draft", tone: "neutral", icon: "git-pull-request" };
+    return { text: t("draft"), tone: "neutral", icon: "git-pull-request" };
   if (pr.review === "changes_requested")
     return {
-      text: "Changes requested",
+      text: t("changesRequested"),
       tone: "warning",
       icon: "git-pull-request",
     };
   if (pr.review === "approved")
-    return { text: "Approved", tone: "success", icon: "git-pull-request" };
-  return { text: "Open", tone: "success", icon: "git-pull-request" };
+    return { text: t("approved"), tone: "success", icon: "git-pull-request" };
+  return { text: t("open"), tone: "success", icon: "git-pull-request" };
 }
 
 /** Which pull request the card shows: the newest still open, else the

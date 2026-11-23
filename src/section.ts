@@ -11,6 +11,7 @@ import {
 } from "@barynt/plugin-sdk/ui";
 import { branchName } from "./branch";
 import { branchSettings } from "./github";
+import { t } from "./i18n";
 import { checkRepository, describeCheck } from "./repositories";
 
 // Below Barynt's form of the plugin's settings (BARY-231): the saved
@@ -21,17 +22,17 @@ import { checkRepository, describeCheck } from "./repositories";
 type Api = Plugin["api"];
 
 export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
-  const rows = stack(text({ text: "Checking…", tone: "subtle", size: "sm" }));
+  const rows = stack(text({ text: t("checking"), tone: "subtle", size: "sm" }));
   const preview = stack();
   const again = button({
-    label: "Check again",
+    label: t("checkAgain"),
     icon: "refresh-cw",
     size: "sm",
     variant: "secondary",
     onClick: () => fill(),
   });
   const panel = stack(
-    sectionHeader({ title: "Repositories on GitHub", icon: "git-branch" }),
+    sectionHeader({ title: t("reposOnGitHub"), icon: "git-branch" }),
     rows,
     preview,
     row(again),
@@ -44,7 +45,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
     if (settings.repositories.length === 0) {
       rows.replaceChildren(
         notice({
-          text: "Tick the repositories above and save — the plugin creates branches in the first one.",
+          text: t("tickRepos"),
           tone: "info",
         }),
       );
@@ -66,13 +67,13 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
             icon: "folder" as const,
             ...(found && {
               href: check.url,
-              meta: `from ${check.defaultBranch}`,
+              meta: t("fromBranch", { branch: check.defaultBranch }),
             }),
             aside: [
               ...(i === 0
                 ? [
                     badge({
-                      text: "Branches",
+                      text: t("branches"),
                       tone: "primary",
                       icon: "git-branch",
                     }),
@@ -81,7 +82,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
               ...(found
                 ? [
                     badge({
-                      text: check.private ? "private" : "public",
+                      text: check.private ? t("private") : t("public"),
                       icon: check.private ? "lock" : "globe",
                     }),
                   ]
@@ -93,7 +94,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
       }),
     );
     // The name a branch gets, with the person's login when GitHub knows it.
-    let user = "you";
+    let user = t("you");
     try {
       const me = await api.net.fetch("https://api.github.com/user", {
         headers: { Accept: "application/vnd.github+json" },
@@ -102,10 +103,15 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
     } catch {}
     preview.replaceChildren(
       text({
-        text: `A branch for WEB-42 "Keep the session cookie" is named ${branchName(
-          settings.pattern,
-          { user, key: "WEB-42", title: "Keep the session cookie" },
-        )}.`,
+        text: t("examplePreview", {
+          key: "WEB-42",
+          title: t("exampleTitle"),
+          name: branchName(settings.pattern, {
+            user,
+            key: "WEB-42",
+            title: t("exampleTitle"),
+          }),
+        }),
         tone: "subtle",
         size: "sm",
       }),

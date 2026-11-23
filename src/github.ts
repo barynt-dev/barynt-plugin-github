@@ -1,5 +1,6 @@
 import type { Plugin } from "@barynt/plugin-sdk";
 import { branchName, DEFAULT_PATTERN, parseRepositories } from "./branch";
+import { t } from "./i18n";
 
 // Creating a branch on GitHub for an issue (BARY-230): with the person's
 // own token when they keep one, else through the project's GitHub
@@ -75,27 +76,20 @@ export async function createBranch(
 ): Promise<{ repo: string; name: string }> {
   const settings = await branchSettings(api);
   const repo = settings.repositories[0];
-  if (!repo)
-    throw new BranchError(
-      "Pick a repository in the project's settings → Plugins → GitHub.",
-    );
+  if (!repo) throw new BranchError(t("pickRepository"));
   const name = await proposedName(api, issueId, settings.pattern);
   const info = await github<{ default_branch?: string }>(api, `/repos/${repo}`);
-  if (info.status === 404)
-    throw new BranchError(
-      `GitHub doesn't show ${repo} — share it with the app, or keep a token that sees it.`,
-    );
-  if (info.status === 401)
-    throw new BranchError("GitHub doesn't accept the token any more.");
+  if (info.status === 404) throw new BranchError(t("repoNotShown", { repo }));
+  if (info.status === 401) throw new BranchError(t("tokenRefused"));
   const base = info.data?.default_branch;
   if (!base)
-    throw new BranchError(`GitHub answered ${info.status} for ${repo}.`);
+    throw new BranchError(t("answeredFor", { status: info.status, repo }));
   const head = await github<{ object?: { sha?: string } }>(
     api,
     `/repos/${repo}/git/ref/heads/${base.split("/").map(encodeURIComponent).join("/")}`,
   );
   const sha = head.data?.object?.sha;
-  if (!sha) throw new BranchError(`${repo} has no ${base} to branch from.`);
+  if (!sha) throw new BranchError(t("noBase", { repo, base }));
 
   for (let n = 1; n <= 5; n++) {
     const candidate = n === 1 ? name : `${name}-${n}`;
@@ -115,9 +109,9 @@ export async function createBranch(
     if (made.status !== 422)
       throw new BranchError(
         made.status === 403 || made.status === 404
-          ? `No right to write to ${repo} (Contents: read and write).`
-          : `GitHub answered ${made.status}.`,
+          ? t("noWriteRight", { repo })
+          : t("answered", { status: made.status }),
       );
   }
-  throw new BranchError(`${name} and the next names are taken in ${repo}.`);
+  throw new BranchError(t("namesTaken", { name, repo }));
 }

@@ -16,6 +16,7 @@ import {
 import { createBranchAction } from "./actions";
 import { COMMITS_SHOWN, development, latestReviews } from "./development";
 import type { PullRequest } from "./entries";
+import { t } from "./i18n";
 import { prLook } from "./row";
 
 // The "Development" panel in an issue's sidebar (BARY-229): its branch,
@@ -27,9 +28,10 @@ type Api = Plugin["api"];
 
 const ago = (iso: string) => {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 60) return `${Math.max(minutes, 1)} min ago`;
-  if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
-  return `${Math.round(minutes / 60 / 24)} d ago`;
+  if (minutes < 60) return t("minutesAgo", { count: Math.max(minutes, 1) });
+  if (minutes < 60 * 24)
+    return t("hoursAgo", { count: Math.round(minutes / 60) });
+  return t("daysAgo", { count: Math.round(minutes / 60 / 24) });
 };
 
 /** Who reviewed, from GitHub — or why it can't say. */
@@ -41,29 +43,29 @@ async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
     );
     if (!res.ok)
       return text({
-        text: `GitHub answered ${res.status} for the reviews.`,
+        text: t("reviewsAnswered", { status: res.status }),
         tone: "subtle",
         size: "sm",
       });
     const latest = latestReviews(res.json());
     if (latest.length === 0)
-      return text({ text: "No reviews yet.", tone: "subtle", size: "sm" });
+      return text({ text: t("noReviews"), tone: "subtle", size: "sm" });
     return stack(
       ...latest.map((r) =>
         user({
           name: r.login,
-          meta: r.state === "approved" ? "Approved" : "Changes requested",
+          meta: r.state === "approved" ? t("approved") : t("changesRequested"),
         }),
       ),
     );
   } catch (error) {
     if (error instanceof BaryntError && error.code === "credential_missing")
       return notice({
-        text: "Connect GitHub in the project's settings, or keep your own token, to see who reviewed.",
+        text: t("connectForReviews"),
         tone: "info",
       });
     return text({
-      text: "Reviews couldn't be loaded.",
+      text: t("reviewsFailed"),
       tone: "subtle",
       size: "sm",
     });
@@ -77,7 +79,7 @@ function pullRequestCard(
 ): HTMLElement {
   const look = prLook(pr);
   const who = stack();
-  who.append(text({ text: "Loading reviews…", tone: "subtle", size: "sm" }));
+  who.append(text({ text: t("loadingReviews"), tone: "subtle", size: "sm" }));
   if (pr.state === "open" || pr.state === "draft")
     void reviews(api, pr).then((el) => who.replaceChildren(el));
   else who.replaceChildren();
@@ -106,7 +108,7 @@ function pullRequestCard(
       ...(pr.url
         ? [
             button({
-              label: "Open on GitHub",
+              label: t("openOnGitHub"),
               icon: "external-link",
               size: "sm",
               variant: "ghost",
@@ -130,18 +132,18 @@ export async function renderDevelopment(
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
 
-  parts.push(sectionHeader({ title: "Branch", icon: "git-branch" }));
+  parts.push(sectionHeader({ title: t("branch"), icon: "git-branch" }));
   if (dev.branches.length === 0) {
     // No branch yet: make one here, with the person's token (BARY-230).
     const status = stack(
       text({
-        text: "No branch names this issue yet.",
+        text: t("noBranchNames"),
         tone: "subtle",
         size: "sm",
       }),
     );
     const create = button({
-      label: "Create branch",
+      label: t("createBranch"),
       icon: "git-branch",
       size: "sm",
       variant: "secondary",
@@ -149,7 +151,7 @@ export async function renderDevelopment(
         const result = await createBranchAction(api, issueId);
         status.replaceChildren(
           notice({
-            text: result.message ?? "Done.",
+            text: result.message ?? t("done"),
             tone: result.tone === "success" ? "success" : "warning",
           }),
         );
@@ -162,7 +164,7 @@ export async function renderDevelopment(
       copyField({
         value: b.name,
         icon: "git-branch",
-        label: "Copy branch name",
+        label: t("copyBranchName"),
         ...(b.url && { href: b.url }),
       }),
     );
@@ -170,7 +172,7 @@ export async function renderDevelopment(
   if (dev.pullRequests.length > 0) {
     parts.push(
       sectionHeader({
-        title: "Pull requests",
+        title: t("pullRequests"),
         icon: "git-pull-request",
         meta: String(dev.pullRequests.length),
       }),
@@ -182,7 +184,7 @@ export async function renderDevelopment(
   if (dev.commits.length > 0) {
     parts.push(
       sectionHeader({
-        title: "Commits",
+        title: t("commits"),
         icon: "git-commit-horizontal",
         meta: String(dev.commits.length),
       }),
@@ -205,7 +207,7 @@ export async function renderDevelopment(
         ...(count < dev.commits.length
           ? [
               button({
-                label: `Show all ${dev.commits.length}`,
+                label: t("showAll", { count: dev.commits.length }),
                 size: "sm",
                 variant: "ghost",
                 onClick: () => show(dev.commits.length),

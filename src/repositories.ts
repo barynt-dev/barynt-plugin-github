@@ -1,4 +1,5 @@
 import { BaryntError, type Plugin } from "@barynt/plugin-sdk";
+import { t } from "./i18n";
 
 // The project's repositories as GitHub sees them (BARY-231) — with the
 // person's token, or the project's GitHub connection (BARY-238): there,
@@ -68,18 +69,18 @@ export function describeCheck(check: RepositoryCheck): {
 } {
   switch (check.state) {
     case "ok":
-      return { text: "Ready", tone: "success" };
+      return { text: t("ready"), tone: "success" };
     case "read-only":
-      return { text: "Read only — no branches", tone: "warning" };
+      return { text: t("readOnly"), tone: "warning" };
     case "missing":
-      return { text: "Not found — not shared with the app", tone: "danger" };
+      return { text: t("notFound"), tone: "danger" };
     case "bad-token":
-      return { text: "GitHub doesn't accept the token", tone: "danger" };
+      return { text: t("badToken"), tone: "danger" };
     case "no-token":
-      return { text: "Connect GitHub above to check", tone: "neutral" };
+      return { text: t("connectToCheck"), tone: "neutral" };
     default:
       return {
-        text: `GitHub answered ${check.status ?? "?"}`,
+        text: t("answered", { status: check.status ?? "?" }),
         tone: "warning",
       };
   }

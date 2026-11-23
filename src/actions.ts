@@ -11,6 +11,7 @@ import {
   createBranch,
   proposedName,
 } from "./github";
+import { t } from "./i18n";
 
 // The issue's actions (BARY-230): in its menu, a card's quick actions and
 // the palette. They run in a hidden frame — copying and opening a tab are
@@ -22,8 +23,7 @@ type Api = Plugin["api"];
 export function explain(error: unknown): ActionResult {
   if (error instanceof BaryntError && error.code === "credential_missing")
     return {
-      message:
-        "Connect GitHub in the project's settings → Plugins → GitHub, or keep your own token under your settings.",
+      message: t("connectOrToken"),
       tone: "warning",
     };
   if (error instanceof BranchError)
@@ -53,7 +53,7 @@ export async function createBranchAction(
   try {
     const { repo, name } = await createBranch(api, issueId);
     return {
-      message: `Branch ${name} created in ${repo}.`,
+      message: t("branchCreated", { name, repo }),
       tone: "success",
       openPanel: "development",
       refresh: true,
@@ -72,7 +72,7 @@ export async function copyBranchNameAction(
     const name =
       branch?.name ??
       (await proposedName(api, issueId, (await branchSettings(api)).pattern));
-    return { copy: name, message: `Copied ${name}`.slice(0, 120) };
+    return { copy: name, message: t("copied", { name }).slice(0, 120) };
   } catch (error) {
     return explain(error);
   }
@@ -86,7 +86,7 @@ export async function openPullRequestAction(
   if (openPr?.url) return { open: openPr.url };
   if (!branch)
     return {
-      message: "No branch for this issue yet — create one first.",
+      message: t("noBranchYet"),
       tone: "warning",
     };
   const issue = await api.issues.get(issueId);

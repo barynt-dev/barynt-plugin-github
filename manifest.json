@@ -14,6 +14,54 @@
       "description": {
         "short": "Pull Requests, Branches und Checks direkt an ihren Issues: auf dem Board, im Issue und mit Regeln, die das Issue weitersetzen.",
         "about": "about.de.md"
+      },
+      "contributes": {
+        "actions": {
+          "create-branch": "Branch erstellen",
+          "copy-branch-name": "Branch-Namen kopieren",
+          "open-pull-request": "Pull Request öffnen"
+        },
+        "issuePanels": {
+          "development": "Entwicklung"
+        },
+        "issueBadges": {
+          "pull-request": "Pull Request"
+        },
+        "settings": {
+          "repositories": {
+            "label": "Repositories",
+            "description": "Die Repositories, mit denen dieses Projekt arbeitet – aus den oben verbundenen GitHub-Konten. Branches entstehen im ersten."
+          },
+          "branchPattern": {
+            "label": "Branch-Name",
+            "description": "{user} ist der GitHub-Login, {key} der Schlüssel des Issues, {title} sein Titel. Behalte {key}: Daran erkennt Barynt das Issue."
+          },
+          "branchAssign": "Issue der Person zuweisen, die seinen Branch erstellt",
+          "branchStatus": {
+            "label": "Status, wenn ein Branch erstellt wird",
+            "description": "Leer lassen, um den Status zu behalten."
+          }
+        },
+        "credentials": {
+          "githubToken": {
+            "label": "Dein GitHub-Token (optional)",
+            "description": "Optional: Branches mit deinem GitHub-Login im Namen und wer reviewt hat. Ohne Token nutzt das Plugin die GitHub-Verbindung des Projekts. Fine-grained: Contents Lesen und Schreiben, Pull requests und Checks Lesen."
+          }
+        },
+        "inboundHooks": {
+          "github": {
+            "title": "GitHub-Repository",
+            "rules": {
+              "opened": "Wenn ein Pull Request geöffnet wird",
+              "merged": "Wenn ein Pull Request gemergt wird"
+            }
+          }
+        }
+      },
+      "previews": {
+        "preview-1.webp": "Pull Requests auf dem Board",
+        "preview-2.webp": "Entwicklung-Panel im Issue",
+        "preview-3.webp": "Webhook und Regeln"
       }
     }
   },

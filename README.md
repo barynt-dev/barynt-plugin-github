@@ -132,6 +132,18 @@ bun run lint && bun run typecheck
 In your local Barynt's `.env`: `PLUGIN_DEV_DIRS="/path/to/barynt-plugin-github"`,
 then install it under **Admin → Plugins → Sources → Local plugins**.
 
+### Languages
+
+English is the base, German is translated; anything missing stays English.
+
+- What the code draws (panel, settings check, actions' messages):
+  `src/i18n.ts`, read with `t("key", { name })`.
+- What Barynt shows from the manifest (settings, actions, the panel's title,
+  the webhook's rules, the previews): `manifest.json` → `locales.de`, by id.
+- The store page: `about.de.md`, and `locales.de.description`.
+
+A new language is another block in both, plus its `about.<lang>.md`.
+
 ## Release
 
 `bun run release` builds, copies the files to `release/<version>/`, prints

@@ -4,6 +4,7 @@ import {
   createBranchAction,
   openPullRequestAction,
 } from "./actions";
+import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
 import { renderSection } from "./section";
@@ -35,7 +36,7 @@ export default class GitHub extends Plugin {
     const onIssue =
       (run: (issueId: string) => Promise<object>) =>
       async ({ issueId }: { issueId: string | null }) =>
-        issueId ? run(issueId) : { message: "Pick an issue first." };
+        issueId ? run(issueId) : { message: t("pickIssue") };
     // Below Barynt's settings form: the repositories, checked on GitHub.
     this.registerSettings({ render: (el) => renderSection(this.api, el) });
     this.registerAction({
