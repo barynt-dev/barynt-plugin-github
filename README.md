@@ -108,8 +108,8 @@ The branch name's pattern is free to type, or picked from **Suggestions**:
 | Suggestion | Pattern | Example |
 | --- | --- | --- |
 | Type, key and title (default) | `{type}/{key}-{title}` | `feature/web-42-keep-the-cookie` |
-| Key and title | `{key}-{title}` | `web-42-keep-the-cookie` (like Jira, GitHub) |
-| Login, key and title | `{user}/{key}-{title}` | `ada/web-42-keep-the-cookie` (like Linear) |
+| Key and title | `{key}-{title}` | `web-42-keep-the-cookie` |
+| Login, key and title | `{user}/{key}-{title}` | `ada/web-42-keep-the-cookie` |
 | Type and key | `{type}/{key}` | `feature/web-42` |
 | Key only | `{key}` | `web-42` |
 

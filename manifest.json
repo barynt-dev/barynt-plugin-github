@@ -42,19 +42,19 @@
               },
               "key-title": {
                 "label": "Schlüssel und Titel",
-                "hint": "web-42-session-cookie-behalten – wie Jira und GitHub"
+                "hint": "web-42-session-cookie-behalten"
               },
               "user-key-title": {
                 "label": "Login, Schlüssel und Titel",
-                "hint": "ada/web-42-session-cookie-behalten – wie Linear"
+                "hint": "ada/web-42-session-cookie-behalten"
               },
               "type-key": {
                 "label": "Typ und Schlüssel",
-                "hint": "feature/web-42 – kurz"
+                "hint": "feature/web-42"
               },
               "key": {
                 "label": "Nur Schlüssel",
-                "hint": "web-42 – am kürzesten"
+                "hint": "web-42"
               }
             }
           },
@@ -108,7 +108,9 @@
   "logo": "logo.png",
   "license": "MIT",
   "kind": "sandbox",
-  "levels": ["project"],
+  "levels": [
+    "project"
+  ],
   "capabilities": [
     "issues:read",
     "issues:write",
@@ -118,7 +120,9 @@
     "ui:issue-panel",
     "ui:action"
   ],
-  "network": ["api.github.com"],
+  "network": [
+    "api.github.com"
+  ],
   "contributes": {
     "issueBadges": [
       {
@@ -138,19 +142,30 @@
         "id": "create-branch",
         "title": "Create branch",
         "icon": "lucide:git-branch",
-        "where": ["issueMenu", "cardMenu", "commandPalette"]
+        "where": [
+          "issueMenu",
+          "cardMenu",
+          "commandPalette"
+        ]
       },
       {
         "id": "copy-branch-name",
         "title": "Copy branch name",
         "icon": "lucide:git-branch",
-        "where": ["issueMenu", "cardMenu", "commandPalette"]
+        "where": [
+          "issueMenu",
+          "cardMenu",
+          "commandPalette"
+        ]
       },
       {
         "id": "open-pull-request",
         "title": "Open pull request",
         "icon": "lucide:git-pull-request",
-        "where": ["issueMenu", "commandPalette"]
+        "where": [
+          "issueMenu",
+          "commandPalette"
+        ]
       }
     ],
     "connections": [
@@ -184,25 +199,25 @@
             "id": "key-title",
             "value": "{key}-{title}",
             "label": "Key and title",
-            "hint": "web-42-keep-the-session-cookie — like Jira and GitHub"
+            "hint": "web-42-keep-the-session-cookie"
           },
           {
             "id": "user-key-title",
             "value": "{user}/{key}-{title}",
             "label": "Login, key and title",
-            "hint": "ada/web-42-keep-the-session-cookie — like Linear"
+            "hint": "ada/web-42-keep-the-session-cookie"
           },
           {
             "id": "type-key",
             "value": "{type}/{key}",
             "label": "Type and key",
-            "hint": "feature/web-42 — short"
+            "hint": "feature/web-42"
           },
           {
             "id": "key",
             "value": "{key}",
             "label": "Key only",
-            "hint": "web-42 — shortest"
+            "hint": "web-42"
           }
         ]
       },
