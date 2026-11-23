@@ -14,8 +14,9 @@ import { branchSettings } from "./github";
 import { checkRepository, describeCheck } from "./repositories";
 
 // Below Barynt's form of the plugin's settings (BARY-231): the saved
-// repositories checked against GitHub with the person's token, and what a
-// branch's name will look like. Changes show after saving.
+// repositories checked against GitHub — with the person's token, or the
+// project's connection (BARY-238) — and what a branch's name will look
+// like. Changes show after saving.
 
 type Api = Plugin["api"];
 
@@ -43,7 +44,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
     if (settings.repositories.length === 0) {
       list.replaceChildren(
         notice({
-          text: "Add owner/repo above and save — the plugin creates branches in the first one.",
+          text: "Tick the repositories above and save — the plugin creates branches in the first one.",
           tone: "info",
         }),
       );

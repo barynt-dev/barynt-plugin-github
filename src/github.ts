@@ -1,9 +1,9 @@
 import type { Plugin } from "@barynt/plugin-sdk";
 import { branchName, DEFAULT_PATTERN, parseRepositories } from "./branch";
 
-// Creating a branch on GitHub for an issue (BARY-230), with the person's
-// own token (`net.fetch` adds it for api.github.com): they're its author on
-// GitHub, not the plugin.
+// Creating a branch on GitHub for an issue (BARY-230): with the person's
+// own token when they keep one, else through the project's GitHub
+// connection (BARY-238) — `net.fetch` adds either for api.github.com.
 
 type Api = Plugin["api"];
 
@@ -77,14 +77,16 @@ export async function createBranch(
   const repo = settings.repositories[0];
   if (!repo)
     throw new BranchError(
-      "Add a repository in the project's settings → Plugins → GitHub.",
+      "Pick a repository in the project's settings → Plugins → GitHub.",
     );
   const name = await proposedName(api, issueId, settings.pattern);
   const info = await github<{ default_branch?: string }>(api, `/repos/${repo}`);
   if (info.status === 404)
-    throw new BranchError(`GitHub doesn't show ${repo} to your token.`);
+    throw new BranchError(
+      `GitHub doesn't show ${repo} — share it with the app, or keep a token that sees it.`,
+    );
   if (info.status === 401)
-    throw new BranchError("GitHub doesn't accept your token any more.");
+    throw new BranchError("GitHub doesn't accept the token any more.");
   const base = info.data?.default_branch;
   if (!base)
     throw new BranchError(`GitHub answered ${info.status} for ${repo}.`);
@@ -113,7 +115,7 @@ export async function createBranch(
     if (made.status !== 422)
       throw new BranchError(
         made.status === 403 || made.status === 404
-          ? `Your token may not write to ${repo} (Contents: read and write).`
+          ? `No right to write to ${repo} (Contents: read and write).`
           : `GitHub answered ${made.status}.`,
       );
   }

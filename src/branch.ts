@@ -43,14 +43,18 @@ export function branchName(
     .slice(0, 200);
 }
 
-/** The repositories from the setting: `owner/repo`, one per line (or by
- *  commas), anything else left out. */
-export function parseRepositories(text: unknown): string[] {
-  if (typeof text !== "string") return [];
+/** The repositories from the setting: a list, as Barynt keeps the picker's
+ *  choice (BARY-238) — or text, `owner/repo` one per line (or by commas),
+ *  as the field before it did. Anything else left out. */
+export function parseRepositories(value: unknown): string[] {
+  const items = Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string")
+    : typeof value === "string"
+      ? value.split(/[\n,]/)
+      : [];
   return [
     ...new Set(
-      text
-        .split(/[\n,]/)
+      items
         .map((r) =>
           r
             .trim()

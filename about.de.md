@@ -1,4 +1,4 @@
-Bring deine GitHub-Arbeit an die Issues, um die es geht. Barynt liest die Webhooks von GitHub selbst — **du brauchst keinen eigenen Server** — und dieses Plugin zeigt, was darin steht.
+Bring deine GitHub-Arbeit an die Issues, um die es geht. Barynt verbindet sich über eine eigene GitHub App und liest, was GitHub meldet. **Du brauchst keinen eigenen Server**, und dieses Plugin zeigt es an.
 
 ## Auf dem Board
 
@@ -22,8 +22,8 @@ Im Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erst
 
 ## Einrichten
 
-1. Schalte das Plugin im Projekt ein.
-2. Trag den angezeigten Webhook in deinem Repository oder deiner Organisation ein.
-3. Optional: Jede Person hinterlegt ein Fine-grained Token, um Branches zu erstellen und Reviewer zu sehen.
+1. Verbinde GitHub einmal für den Workspace (oder ein Projekt): Installiere die GitHub App von Barynt auf deiner Organisation und wähle die Repositories aus.
+2. Schalte das Plugin im Projekt ein und hake die Repositories an, mit denen es arbeitet. Einen Webhook musst du nicht anlegen.
+3. Optional: Jede Person hinterlegt ein Fine-grained-Token, damit ihr Login im Branch-Namen steht und sie die Reviewer sieht.
 
 Tokens werden verschlüsselt gespeichert und nur an `api.github.com` geschickt.

@@ -46,6 +46,13 @@ describe("the repositories setting", () => {
     ).toEqual(["acme/web", "acme/api", "acme/docs.site"]);
     expect(parseRepositories(undefined)).toEqual([]);
   });
+
+  it("takes the list Barynt's picker keeps (BARY-238)", () => {
+    expect(parseRepositories(["acme/web", "acme/api", 3, "acme/web"])).toEqual([
+      "acme/web",
+      "acme/api",
+    ]);
+  });
 });
 
 describe("opening a pull request", () => {

@@ -59,7 +59,7 @@ async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
   } catch (error) {
     if (error instanceof BaryntError && error.code === "credential_missing")
       return notice({
-        text: "Keep your GitHub token under your settings → Plugins → GitHub to see who reviewed.",
+        text: "Connect GitHub in the project's settings, or keep your own token, to see who reviewed.",
         tone: "info",
       });
     return text({

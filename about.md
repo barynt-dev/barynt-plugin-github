@@ -1,4 +1,4 @@
-Bring your GitHub work to the issues it's about. Barynt reads GitHub's webhooks itself — **there's no server to run** — and this plugin shows what they say.
+Bring your GitHub work to the issues it's about. Barynt connects through its own GitHub App and reads what GitHub reports — **there's no server to run** — and this plugin shows it.
 
 ## On the board
 
@@ -22,8 +22,8 @@ From an issue's menu, a card or the command palette: **Create branch** (named af
 
 ## Setup
 
-1. Switch the plugin on in the project.
-2. Add the webhook it shows to your repository or organization.
-3. Optional: each person adds a fine-grained token, to create branches and see reviewers.
+1. Connect GitHub once for the workspace (or a project): install Barynt's GitHub App on your organization and pick its repositories.
+2. Switch the plugin on in the project and tick the repositories it works with. No webhook to add.
+3. Optional: each person adds a fine-grained token, for their login in branch names and to see reviewers.
 
 Tokens are stored encrypted and only ever sent to `api.github.com`.

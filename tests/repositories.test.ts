@@ -125,7 +125,7 @@ describe("the settings section", () => {
     const shown = root.textContent ?? "";
     expect(shown).toContain("acme/web");
     expect(shown).toContain("Ready");
-    expect(shown).toContain("Not found for your token");
+    expect(shown).toContain("Not found — not shared with the app");
     expect(shown).toContain("ada/web-42-keep-the-session-cookie");
   });
 });

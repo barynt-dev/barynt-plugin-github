@@ -83,12 +83,19 @@
         "where": ["issueMenu", "commandPalette"]
       }
     ],
+    "connections": [
+      {
+        "id": "github",
+        "title": "GitHub",
+        "provider": "github"
+      }
+    ],
     "settings": [
       {
         "key": "repositories",
-        "type": "textarea",
+        "type": "repositories",
         "label": "Repositories",
-        "description": "owner/repo, one per line. Branches are created in the first."
+        "description": "The repositories this project works with — from the GitHub accounts connected above. Branches are created in the first."
       },
       {
         "key": "branchPattern",
@@ -113,8 +120,8 @@
     "credentials": [
       {
         "key": "githubToken",
-        "label": "GitHub token",
-        "description": "A fine-grained token for the team's repositories: Contents read and write (for branches), Pull requests and Checks read. Only ever sent to api.github.com.",
+        "label": "Your GitHub token (optional)",
+        "description": "Optional: branches with your GitHub login in their name, and who reviewed. Without it the plugin uses the project's GitHub connection. Fine-grained: Contents read and write, Pull requests and Checks read.",
         "level": "user",
         "host": "api.github.com",
         "format": "Bearer {value}"

@@ -89,18 +89,18 @@ describe("Create branch", () => {
     });
   });
 
-  it("says what's missing: a repository, the person's token, write access", async () => {
+  it("says what's missing: a repository, a connection or token, write access", async () => {
     const noRepo = host({ github: fakeGitHub() });
     await loadPlugin(GitHub, noRepo);
     expect(
       (await noRepo.runAction("create-branch", { issueId: "i-1" }))?.message,
-    ).toContain("Add a repository");
+    ).toContain("Pick a repository");
 
     const noToken = host({ settings: { repositories: "acme/web" } });
     await loadPlugin(GitHub, noToken);
     expect(
       (await noToken.runAction("create-branch", { issueId: "i-1" }))?.message,
-    ).toContain("Keep your GitHub token");
+    ).toContain("Connect GitHub");
 
     const readOnly = host({
       settings: { repositories: "acme/web" },
@@ -110,7 +110,7 @@ describe("Create branch", () => {
     await loadPlugin(GitHub, readOnly);
     expect(
       (await readOnly.runAction("create-branch", { issueId: "i-1" }))?.message,
-    ).toContain("may not write");
+    ).toContain("No right to write");
   });
 });
 

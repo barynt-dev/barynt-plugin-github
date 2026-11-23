@@ -8,7 +8,7 @@ pull request with reviews and checks, the issue gets a **Development** panel
 with branch, commits and checks, rules move it to _In Review_ or _Done_ as the
 pull request opens and merges, and a branch starts right from the issue.
 
-There's no server to run: Barynt reads GitHub's webhooks itself and keeps what
+There's no server to run: Barynt connects through its own GitHub App, reads what GitHub reports and keeps what
 they say on the issues; this plugin draws it.
 
 ![Pull requests on the board](preview-1.webp)
@@ -25,26 +25,37 @@ overall result. With several pull requests, the newest open one and "+n".
 The rows of a whole board come from one request to Barynt, never one to
 GitHub per card, and change on their own when GitHub reports.
 
-## Set it up in a project
+## Set it up
+
+Barynt connects to GitHub through its own **GitHub App** — installed once on
+your organization, where you pick the repositories it may see. GitHub then
+reports to Barynt by itself: no webhook per repository, no token for the
+team.
 
 1. **Admin → Plugins**: install GitHub from the official directory
-   ([barynt-plugin-store](https://github.com/barynt-dev/barynt-plugin-store)),
-   then release it for the workspace.
-2. **Project settings → Plugins → GitHub**: confirm what it may do and
-   switch it on.
-3. The card **Webhooks from other services** shows an address and a
-   secret. In GitHub, open the repository (or the organization) →
-   **Settings → Webhooks → Add webhook**:
-   - **Payload URL**: the address
-   - **Content type**: `application/json`
-   - **Secret**: the secret
-   - **Let me select individual events**: Branch or tag creation, Branch or
-     tag deletion, Check runs, Check suites, Pull requests, Pull request
-     reviews, Pushes
-4. Each person who wants to create branches from Barynt adds a
-   **fine-grained token** under their personal settings → Plugins → GitHub:
-   _Contents_ read and write, _Pull requests_ and _Checks_ read, for the
-   team's repositories. It's only ever sent to `api.github.com`.
+   ([barynt-plugin-store](https://github.com/barynt-dev/barynt-plugin-store)).
+   On its page, the card **GitHub App** creates the instance's app on
+   GitHub in one step (or set `GITHUB_APP_*` for one you made yourself).
+   Then release it for the workspace.
+2. **Workspace settings → Plugins → GitHub → Connect GitHub**: sign in at
+   GitHub, install the app on an account and pick its repositories. A
+   workspace's connection counts for every project; a project can connect
+   an account of its own too.
+3. **Project settings → Plugins → GitHub**: confirm what it may do, switch
+   it on, and tick the **repositories** the project works with — Barynt
+   lists what the connected accounts share.
+
+**Your own token (optional):** a fine-grained token under your personal
+settings → Plugins → GitHub (_Contents_ read and write, _Pull requests_ and
+_Checks_ read) puts your GitHub login into branch names and shows who
+reviewed. Without it, the plugin works through the connection — on the
+ticked repositories only. It's only ever sent to `api.github.com`.
+
+**Without the app:** type the repositories (`owner/repo`, one per line),
+add the webhook from the card **Webhooks from other services** in GitHub
+(`application/json`, the secret, and the events _Branch or tag creation_,
+_Branch or tag deletion_, _Check runs_, _Check suites_, _Pull requests_,
+_Pull request reviews_, _Pushes_), and everyone keeps a token.
 
 ## Rules
 
@@ -77,7 +88,8 @@ In an issue's menu ("…"), a card's quick actions and the command palette:
 - **Create branch** — in the project's first repository, from its default
   branch, named after the pattern in the settings (`{user}/{key}-{title}`
   by default: `ada/web-42-keep-the-cookie`); a taken name gets `-2`. With
-  your own token, so you're its author on GitHub. As the project set it,
+  your own token if you keep one, else through the connection. As the
+  project set it,
   the issue is then assigned to you and moved to a status. The panel has
   the same button while the issue has no branch.
 - **Copy branch name** — the issue's branch, or the name it would get.
@@ -86,12 +98,13 @@ In an issue's menu ("…"), a card's quick actions and the command palette:
 
 ## Settings
 
-Under **Project settings → Plugins → GitHub**: the repositories (`owner/repo`,
-one per line), the branch name's pattern, whether creating a branch assigns
+Under **Project settings → Plugins → GitHub**: the GitHub accounts
+connected, the repositories (ticked from what they share), the branch
+name's pattern, whether creating a branch assigns
 the issue, and which status it gets then.
 
 Below the form, **Repositories on GitHub** checks each saved repository
-with your token: _Ready_, _Read only_ (no branches), _Not found for your
+(with your token, or the connection): _Ready_, _Read only_ (no branches), _Not found for your
 token_, or that GitHub doesn't accept the token — and shows what a
 branch's name will look like. When the webhook last called is on Barynt's
 card below it.

@@ -121,7 +121,7 @@ describe("the GitHub plugin", () => {
     });
     await loadPlugin(GitHub, noToken.host);
     await settle();
-    expect(noToken.root.textContent).toContain("Keep your GitHub token");
+    expect(noToken.root.textContent).toContain("or keep your own token");
   });
 
   it("lets Barynt read GitHub's webhooks, with no server of its own", () => {

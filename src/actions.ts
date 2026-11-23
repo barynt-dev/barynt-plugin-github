@@ -22,7 +22,8 @@ type Api = Plugin["api"];
 export function explain(error: unknown): ActionResult {
   if (error instanceof BaryntError && error.code === "credential_missing")
     return {
-      message: "Keep your GitHub token under your settings → Plugins → GitHub.",
+      message:
+        "Connect GitHub in the project's settings → Plugins → GitHub, or keep your own token under your settings.",
       tone: "warning",
     };
   if (error instanceof BranchError)
