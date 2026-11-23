@@ -91,7 +91,22 @@ describe("checking a repository", () => {
 describe("through the project's GitHub connection (BARY-238)", () => {
   it("is ready: an installation's answer says no permissions, its app may write", async () => {
     expect(
-      (await check({ status: 200, body: { default_branch: "main" } })).state,
+      (
+        await check({
+          status: 200,
+          body: {
+            default_branch: "main",
+            // What GitHub answers an installation's token, word for word.
+            permissions: {
+              admin: false,
+              maintain: false,
+              push: false,
+              triage: false,
+              pull: false,
+            },
+          },
+        })
+      ).state,
     ).toBe("ok");
   });
 });

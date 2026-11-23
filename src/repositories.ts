@@ -36,14 +36,18 @@ export async function checkRepository(
       default_branch?: string;
       private?: boolean;
       html_url?: string;
-      permissions?: { push?: boolean };
+      permissions?: { push?: boolean; pull?: boolean };
     }>();
     return {
       repo,
-      // A person's token says what they may; an installation's says
-      // nothing — its rights are the app's (Contents: write), so it may.
+      // A person's token says what they may. An installation's (the
+      // project's GitHub connection) answers every permission false — even
+      // `pull`, which anyone who sees a repository has: its rights are the
+      // app's (Contents: write), so it may.
       state:
-        data.permissions === undefined || data.permissions.push
+        !data.permissions ||
+        data.permissions.push ||
+        data.permissions.pull === false
           ? "ok"
           : "read-only",
       defaultBranch: data.default_branch ?? "main",
