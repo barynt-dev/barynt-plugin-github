@@ -88,6 +88,14 @@ describe("checking a repository", () => {
   });
 });
 
+describe("through the project's GitHub connection (BARY-238)", () => {
+  it("is ready: an installation's answer says no permissions, its app may write", async () => {
+    expect(
+      (await check({ status: 200, body: { default_branch: "main" } })).state,
+    ).toBe("ok");
+  });
+});
+
 describe("the settings section", () => {
   it("lists the saved repositories as GitHub sees them, and a branch's name", async () => {
     const root = document.createElement("div");

@@ -2,7 +2,7 @@ import type { Plugin } from "@barynt/plugin-sdk";
 import {
   badge,
   button,
-  link,
+  list,
   notice,
   row,
   sectionHeader,
@@ -21,7 +21,7 @@ import { checkRepository, describeCheck } from "./repositories";
 type Api = Plugin["api"];
 
 export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
-  const list = stack(text({ text: "Checking…", tone: "subtle", size: "sm" }));
+  const rows = stack(text({ text: "Checking…", tone: "subtle", size: "sm" }));
   const preview = stack();
   const again = button({
     label: "Check again",
@@ -32,7 +32,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
   });
   const panel = stack(
     sectionHeader({ title: "Repositories on GitHub", icon: "git-branch" }),
-    list,
+    rows,
     preview,
     row(again),
   );
@@ -42,7 +42,7 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
   async function fill(): Promise<void> {
     const settings = await branchSettings(api);
     if (settings.repositories.length === 0) {
-      list.replaceChildren(
+      rows.replaceChildren(
         notice({
           text: "Tick the repositories above and save — the plugin creates branches in the first one.",
           tone: "info",
@@ -54,31 +54,42 @@ export async function renderSection(api: Api, el: HTMLElement): Promise<void> {
     const checks = await Promise.all(
       settings.repositories.map((r) => checkRepository(api, r)),
     );
-    list.replaceChildren(
-      ...checks.map((check, i) => {
-        const look = describeCheck(check);
-        return row(
-          check.state === "ok" || check.state === "read-only"
-            ? link({ text: check.repo, href: check.url })
-            : text({ text: check.repo, mono: true, inline: true }),
-          badge({ text: look.text, tone: look.tone }),
-          ...(check.state === "ok" || check.state === "read-only"
-            ? [
-                text({
-                  text: [
-                    `from ${check.defaultBranch}`,
-                    check.private ? "private" : "public",
-                    i === 0 ? "branches go here" : "",
+    // The kit's list: each repository with what it is on the right, the
+    // first one marked as where branches go.
+    rows.replaceChildren(
+      list({
+        items: checks.map((check, i) => {
+          const look = describeCheck(check);
+          const found = check.state === "ok" || check.state === "read-only";
+          return {
+            title: check.repo,
+            icon: "folder" as const,
+            ...(found && {
+              href: check.url,
+              meta: `from ${check.defaultBranch}`,
+            }),
+            aside: [
+              ...(i === 0
+                ? [
+                    badge({
+                      text: "Branches",
+                      tone: "primary",
+                      icon: "git-branch",
+                    }),
                   ]
-                    .filter(Boolean)
-                    .join(" · "),
-                  tone: "subtle",
-                  size: "xs",
-                  inline: true,
-                }),
-              ]
-            : []),
-        );
+                : []),
+              ...(found
+                ? [
+                    badge({
+                      text: check.private ? "private" : "public",
+                      icon: check.private ? "lock" : "globe",
+                    }),
+                  ]
+                : []),
+              badge({ text: look.text, tone: look.tone }),
+            ],
+          };
+        }),
       }),
     );
     // The name a branch gets, with the person's login when GitHub knows it.

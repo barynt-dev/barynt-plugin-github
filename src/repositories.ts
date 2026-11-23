@@ -40,7 +40,12 @@ export async function checkRepository(
     }>();
     return {
       repo,
-      state: data.permissions?.push ? "ok" : "read-only",
+      // A person's token says what they may; an installation's says
+      // nothing — its rights are the app's (Contents: write), so it may.
+      state:
+        data.permissions === undefined || data.permissions.push
+          ? "ok"
+          : "read-only",
       defaultBranch: data.default_branch ?? "main",
       private: data.private === true,
       url: data.html_url ?? `https://github.com/${repo}`,
