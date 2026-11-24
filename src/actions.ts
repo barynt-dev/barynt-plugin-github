@@ -55,6 +55,7 @@ export async function branchRepoPick(api: Api): Promise<ActionResult | null> {
   return {
     pick: {
       title: t("pickBranchRepo"),
+      icon: "lucide:git-branch",
       options: repositories.map((repo, i) => ({
         id: repo,
         label: repo,
