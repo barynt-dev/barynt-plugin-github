@@ -135,7 +135,9 @@ export async function renderDevelopment(
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
 
-  parts.push(sectionHeader({ title: t("branch"), icon: "git-branch" }));
+  parts.push(
+    sectionHeader({ title: t("branch"), icon: "git-branch", size: "sm" }),
+  );
   if (dev.branches.length === 0) {
     // No branch yet: make one here, with the person's token (BARY-230).
     const status = stack(
@@ -228,6 +230,7 @@ export async function renderDevelopment(
   if (dev.pullRequests.length > 0) {
     parts.push(
       sectionHeader({
+        size: "sm",
         title: t("pullRequests"),
         icon: "git-pull-request",
         meta: String(dev.pullRequests.length),
@@ -240,6 +243,7 @@ export async function renderDevelopment(
   if (dev.commits.length > 0) {
     parts.push(
       sectionHeader({
+        size: "sm",
         title: t("commits"),
         icon: "git-commit-horizontal",
         meta: String(dev.commits.length),
@@ -279,6 +283,7 @@ export async function renderDevelopment(
   if (dev.deployments.length > 0) {
     parts.push(
       sectionHeader({
+        size: "sm",
         title: t("deployments"),
         icon: "rocket",
         meta: String(dev.deployments.length),
@@ -313,7 +318,10 @@ export async function renderDevelopment(
     );
   }
 
+  // In the issue's sidebar, without a box: edge to edge with its fields,
+  // the quiet heads a little closer to what they head.
   const panel = stack(...parts);
-  panel.style.padding = "0.75rem";
+  panel.style.padding = "0.25rem 0 0.5rem";
+  panel.style.gap = "0.625rem";
   el.replaceChildren(panel);
 }
