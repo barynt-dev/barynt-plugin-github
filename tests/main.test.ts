@@ -133,8 +133,14 @@ describe("the GitHub plugin", () => {
     });
     // Rules Barynt runs as the plugin's app (BARY-227): it may set a status.
     expect(hook.rules.map((r) => r.on)).toEqual([
+      "pull_request.draft",
       "pull_request.opened",
+      "pull_request.review_requested",
+      "pull_request.approved",
+      "pull_request.changes_requested",
       "pull_request.merged",
+      "pull_request.closed",
+      "checks.failed",
     ]);
     expect(manifest.capabilities).toContain("issues:write");
     expect("service" in manifest).toBe(false);

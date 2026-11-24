@@ -56,12 +56,17 @@
                 "label": "Nur Schlüssel",
                 "hint": "web-42"
               }
-            }
+            },
+            "group": "Branches"
           },
-          "branchAssign": "Issue der Person zuweisen, die seinen Branch erstellt",
+          "branchAssign": {
+            "label": "Issue der Person zuweisen, die seinen Branch erstellt",
+            "group": "Branches"
+          },
           "branchStatus": {
             "label": "Status, wenn ein Branch erstellt wird",
-            "description": "Leer lassen, um den Status zu behalten."
+            "description": "Leer lassen, um den Status zu behalten.",
+            "group": "Branches"
           }
         },
         "credentials": {
@@ -74,8 +79,14 @@
           "github": {
             "title": "GitHub-Repository",
             "rules": {
-              "opened": "Wenn ein Pull Request geöffnet wird",
-              "merged": "Wenn ein Pull Request gemergt wird"
+              "draft": "Als Entwurf geöffnet",
+              "opened": "Geöffnet oder bereit für Review",
+              "review-requested": "Review angefragt",
+              "approved": "Freigegeben",
+              "changes-requested": "Änderungen gewünscht",
+              "merged": "Gemergt",
+              "closed": "Ohne Merge geschlossen",
+              "checks-failed": "Checks auf dem Branch fehlgeschlagen"
             }
           }
         }
@@ -219,19 +230,22 @@
             "label": "Key only",
             "hint": "web-42"
           }
-        ]
+        ],
+        "group": "Branches"
       },
       {
         "key": "branchAssign",
         "type": "boolean",
         "label": "Assign the issue to whoever creates its branch",
-        "default": true
+        "default": true,
+        "group": "Branches"
       },
       {
         "key": "branchStatus",
         "type": "status",
         "label": "Status when a branch is created",
-        "description": "Leave empty to keep the status."
+        "description": "Leave empty to keep the status.",
+        "group": "Branches"
       }
     ],
     "credentials": [
@@ -252,14 +266,44 @@
         "handle": "link",
         "rules": [
           {
+            "id": "draft",
+            "title": "Opened as a draft",
+            "on": "pull_request.draft"
+          },
+          {
             "id": "opened",
-            "title": "When a pull request is opened",
+            "title": "Opened or ready for review",
             "on": "pull_request.opened"
           },
           {
+            "id": "review-requested",
+            "title": "Review requested",
+            "on": "pull_request.review_requested"
+          },
+          {
+            "id": "approved",
+            "title": "Approved",
+            "on": "pull_request.approved"
+          },
+          {
+            "id": "changes-requested",
+            "title": "Changes requested",
+            "on": "pull_request.changes_requested"
+          },
+          {
             "id": "merged",
-            "title": "When a pull request is merged",
+            "title": "Merged",
             "on": "pull_request.merged"
+          },
+          {
+            "id": "closed",
+            "title": "Closed without merging",
+            "on": "pull_request.closed"
+          },
+          {
+            "id": "checks-failed",
+            "title": "Checks failed on the branch",
+            "on": "checks.failed"
           }
         ]
       }

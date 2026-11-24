@@ -14,7 +14,7 @@ Das Panel **Development** zeigt:
 
 ## Regeln
 
-Wähle einen Status für _Pull Request geöffnet_ und _Pull Request gemergt_ — etwa _In Review_ und _Done_. Barynt setzt ihn als „GitHub (App)“ und kommentiert, warum, aber nur bei Issues, an denen der Pull Request wirklich arbeitet: der Schlüssel im Branch-Namen oder nach _Fixes_, _Closes_ oder _Resolves_.
+Wähle einen Status für jeden Schritt eines Pull Requests — Entwurf, geöffnet, Review angefragt, freigegeben, Änderungen gewünscht, gemergt, geschlossen — und für fehlgeschlagene Checks (auch GitHub Actions); beschränke sie auf Ziel-Branches wie `main`. Barynt setzt ihn als „GitHub (App)“ und kommentiert, warum, aber nur bei Issues, an denen der Pull Request wirklich arbeitet: der Schlüssel im Branch-Namen oder nach _Fixes_, _Closes_ oder _Resolves_.
 
 ## Aktionen
 

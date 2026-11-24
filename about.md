@@ -14,7 +14,7 @@ The **Development** panel shows:
 
 ## Rules
 
-Pick a status for _a pull request is opened_ and _a pull request is merged_ — say _In Review_ and _Done_. Barynt sets it as "GitHub (App)" and comments why, but only for issues the pull request really works on: the key in the branch name, or after _Fixes_, _Closes_ or _Resolves_.
+Pick a status for each step of a pull request — draft, opened, review requested, approved, changes requested, merged, closed — and for failing checks (GitHub Actions too); limit them to target branches like `main`. Barynt sets it as "GitHub (App)" and comments why, but only for issues the pull request really works on: the key in the branch name, or after _Fixes_, _Closes_ or _Resolves_.
 
 ## Actions
 

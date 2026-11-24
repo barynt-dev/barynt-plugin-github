@@ -61,15 +61,32 @@ _Pull request reviews_, _Pushes_), and everyone keeps a token.
 
 ![The webhook and its rules](preview-3.webp)
 
-Under the webhook in the plugin's settings, pick a status for each rule,
-or leave it off:
+In the project's plugin settings, pick a status for each rule, or leave it
+off — saved with the page's **Save** button:
 
-- **When a pull request is opened** — e.g. _In Review_
-- **When a pull request is merged** — e.g. _Done_
+**Pull requests**, along their way:
 
-Barynt sets it as "GitHub (App)" and comments why — only for an issue the
-pull request works on: its key in the branch's name, or after _Fixes_,
-_Closes_ or _Resolves_ in the title or description.
+| Rule | e.g. |
+| --- | --- |
+| Opened as a draft | _In Progress_ |
+| Opened or ready for review | _In Review_ |
+| Review requested | _In Review_ |
+| Approved | _Ready_ |
+| Changes requested | _In Progress_ |
+| Merged | _Done_ |
+| Closed without merging | _Todo_ |
+
+**Target branches** limits them to pull requests into these branches —
+`main, release/*`; empty: all. So a merge into `develop` doesn't mark an
+issue _Done_.
+
+**Checks & Actions:** _Checks failed on the branch_ — any check on the
+issue's branch, GitHub Actions included, e.g. _Blocked_.
+
+Barynt sets the status as "GitHub (App)" and comments why — only for an
+issue the pull request (or the branch) works on: its key in the branch's
+name, or after _Fixes_, _Closes_ or _Resolves_ in the title or
+description. An issue already there stays as it is.
 
 ## In the issue
 
