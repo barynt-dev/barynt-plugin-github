@@ -77,8 +77,8 @@
         },
         "credentials": {
           "githubToken": {
-            "label": "Dein GitHub-Token (optional)",
-            "description": "Optional: Branches mit deinem GitHub-Login im Namen und wer reviewt hat. Ohne Token nutzt das Plugin die GitHub-Verbindung des Projekts. Fine-grained: Contents Lesen und Schreiben, Pull requests und Checks Lesen."
+            "label": "Eigenes GitHub-Token (optional)",
+            "description": "Nur nötig, wenn du oben kein GitHub-Konto verbindest. Ein Token hier geht vor. Fine-grained: Contents Lesen und Schreiben, Pull requests und Checks Lesen."
           }
         },
         "inboundHooks": {
@@ -262,8 +262,8 @@
     "credentials": [
       {
         "key": "githubToken",
-        "label": "Your GitHub token (optional)",
-        "description": "Optional: branches with your GitHub login in their name, and who reviewed. Without it the plugin uses the project's GitHub connection. Fine-grained: Contents read and write, Pull requests and Checks read.",
+        "label": "Your own GitHub token (optional)",
+        "description": "Only needed if you don't connect a GitHub account above. A token here goes first. Fine-grained: Contents read and write, Pull requests and Checks read.",
         "level": "user",
         "host": "api.github.com",
         "format": "Bearer {value}"
