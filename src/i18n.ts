@@ -18,6 +18,25 @@ const en = {
   pickRepository:
     "Pick a repository under Settings → Plugins → GitHub, tab Project.",
   pickBranchRepo: "Create the branch in which repository?",
+  createBranchTitle: "Create branch",
+  createBranchIn: "In {repo}.",
+  branchNameLabel: "Branch name",
+  baseBranch: "From branch",
+  baseBranchHint: "Empty: the repository's default branch.",
+  badBranchName:
+    "That isn't a branch name Git takes — no spaces, ~ ^ : ? * [ or \\.",
+  branchNameTaken:
+    "There's a branch {name} already, or GitHub doesn't take the name.",
+  pickBranch: "Pick a branch in the issue's Development section.",
+  renameBranch: "Rename branch",
+  renameBranchTitle: "Rename branch",
+  renameBranchIn: "In {repo}. Pull requests from it follow the new name.",
+  branchRenamed: "Branch renamed to {name}.",
+  deleteBranch: "Delete branch",
+  deleteBranchTitle: "Delete branch?",
+  deleteBranchText:
+    "{name} is deleted in {repo}. An open pull request from it is closed.",
+  branchDeleted: "Branch {name} deleted.",
   defaultRepo: "Where branches go by default",
   repoNotShown:
     "GitHub doesn't show {repo} — share it with the app, or keep a token that sees it.",
@@ -88,6 +107,25 @@ export const t = translator({
     pickRepository:
       "Wähle ein Repository unter Einstellungen → Plugins → GitHub, Tab Projekt.",
     pickBranchRepo: "In welchem Repository soll der Branch entstehen?",
+    createBranchTitle: "Branch erstellen",
+    createBranchIn: "In {repo}.",
+    branchNameLabel: "Branch-Name",
+    baseBranch: "Ausgehend von",
+    baseBranchHint: "Leer: der Standard-Branch des Repositorys.",
+    badBranchName:
+      "Diesen Namen nimmt Git nicht – keine Leerzeichen, ~ ^ : ? * [ oder \\.",
+    branchNameTaken:
+      "Es gibt schon einen Branch {name}, oder GitHub nimmt den Namen nicht.",
+    pickBranch: "Wähle einen Branch im Abschnitt Entwicklung des Issues.",
+    renameBranch: "Branch umbenennen",
+    renameBranchTitle: "Branch umbenennen",
+    renameBranchIn: "In {repo}. Pull Requests davon folgen dem neuen Namen.",
+    branchRenamed: "Branch umbenannt in {name}.",
+    deleteBranch: "Branch löschen",
+    deleteBranchTitle: "Branch löschen?",
+    deleteBranchText:
+      "{name} wird in {repo} gelöscht. Ein offener Pull Request davon wird geschlossen.",
+    branchDeleted: "Branch {name} gelöscht.",
     defaultRepo: "Standard für neue Branches",
     repoNotShown:
       "GitHub zeigt {repo} nicht – gib es für die App frei oder hinterlege ein Token, das es sieht.",

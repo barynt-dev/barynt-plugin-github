@@ -24,6 +24,8 @@ function host(options: {
         }) as never,
       "issues.get": () => issue as never,
       "issues.update": () => ({ id: "i-1" }),
+      "issueData.set": () => null,
+      "issueData.delete": () => null,
       "issueData.list": () =>
         ({
           "i-1": (options.entries ?? []).map((value, i) => ({
@@ -86,6 +88,7 @@ describe("Create branch", () => {
     const done = await h.runAction("create-branch", {
       issueId: "i-1",
       choice: "acme/web",
+      values: {},
     });
     expect(done).toMatchObject({ tone: "success" });
     expect(log.some((r) => r.url.endsWith("/repos/acme/web/git/refs"))).toBe(
@@ -100,7 +103,11 @@ describe("Create branch", () => {
       github: fakeGitHub([], log),
     });
     await loadPlugin(GitHub, h);
-    await h.runAction("create-branch", { issueId: "i-1", choice: "evil/repo" });
+    await h.runAction("create-branch", {
+      issueId: "i-1",
+      choice: "evil/repo",
+      values: {},
+    });
     expect(log.some((r) => r.url.includes("evil/repo"))).toBe(false);
     expect(log.some((r) => r.url.endsWith("/repos/acme/web/git/refs"))).toBe(
       true,
@@ -114,7 +121,10 @@ describe("Create branch", () => {
       github: fakeGitHub(["ada/nim-42-keep-the-cookie"], log),
     });
     await loadPlugin(GitHub, h);
-    const result = await h.runAction("create-branch", { issueId: "i-1" });
+    const result = await h.runAction("create-branch", {
+      issueId: "i-1",
+      values: {},
+    });
     expect(result).toMatchObject({
       message: "Branch ada/nim-42-keep-the-cookie-2 created in acme/web.",
       tone: "success",
@@ -130,6 +140,73 @@ describe("Create branch", () => {
     });
   });
 
+  it("asks its name and the branch it starts from in a window first", async () => {
+    const h = host({
+      settings: { repositories: "acme/web" },
+      github: (req) => {
+        if (req.url.endsWith("/repos/acme/web/branches?per_page=100"))
+          return { status: 200, body: [{ name: "main" }, { name: "develop" }] };
+        return fakeGitHub()(req);
+      },
+    });
+    await loadPlugin(GitHub, h);
+    const asked = await h.runAction("create-branch", { issueId: "i-1" });
+    expect(asked.form?.fields).toEqual([
+      expect.objectContaining({
+        id: "name",
+        value: "ada/nim-42-keep-the-cookie",
+      }),
+      expect.objectContaining({
+        id: "base",
+        type: "select",
+        options: [
+          { id: "main", label: "main" },
+          { id: "develop", label: "develop" },
+        ],
+      }),
+    ]);
+  });
+
+  it("creates it under the name set, from the branch picked, and keeps it on the issue", async () => {
+    const log: Net[] = [];
+    const h = host({
+      settings: { repositories: "acme/web", branchAssign: false },
+      github: (req) => {
+        log.push(req);
+        if (req.url.endsWith("/git/ref/heads/develop"))
+          return { status: 200, body: { object: { sha: "dev" } } };
+        return fakeGitHub()(req);
+      },
+    });
+    await loadPlugin(GitHub, h);
+    await h.runAction("create-branch", {
+      issueId: "i-1",
+      values: { name: "nim-42-spike", base: "develop" },
+    });
+    expect(JSON.parse(log.at(-1)?.body ?? "{}")).toEqual({
+      ref: "refs/heads/nim-42-spike",
+      sha: "dev",
+    });
+    const kept = h.calls.find((c) => c.method === "issueData.set");
+    expect(kept?.params).toMatchObject({
+      issueId: "i-1",
+      value: { kind: "branch", repo: "acme/web", name: "nim-42-spike" },
+    });
+  });
+
+  it("won't take a name Git doesn't", async () => {
+    const h = host({
+      settings: { repositories: "acme/web" },
+      github: fakeGitHub(),
+    });
+    await loadPlugin(GitHub, h);
+    const result = await h.runAction("create-branch", {
+      issueId: "i-1",
+      values: { name: "two words" },
+    });
+    expect(result.tone).toBe("warning");
+  });
+
   it("says what's missing: a repository, a connection or token, write access", async () => {
     const noRepo = host({ github: fakeGitHub() });
     await loadPlugin(GitHub, noRepo);
@@ -140,7 +217,12 @@ describe("Create branch", () => {
     const noToken = host({ settings: { repositories: "acme/web" } });
     await loadPlugin(GitHub, noToken);
     expect(
-      (await noToken.runAction("create-branch", { issueId: "i-1" }))?.message,
+      (
+        await noToken.runAction("create-branch", {
+          issueId: "i-1",
+          values: {},
+        })
+      )?.message,
     ).toContain("Connect GitHub");
 
     const readOnly = host({
@@ -150,7 +232,12 @@ describe("Create branch", () => {
     });
     await loadPlugin(GitHub, readOnly);
     expect(
-      (await readOnly.runAction("create-branch", { issueId: "i-1" }))?.message,
+      (
+        await readOnly.runAction("create-branch", {
+          issueId: "i-1",
+          values: {},
+        })
+      )?.message,
     ).toContain("No right to write");
   });
 });
@@ -275,5 +362,61 @@ describe("Run workflow (BARY-238)", () => {
     expect(await run({ workflow: "ci.yml" }, [branch], 403)).toContain(
       "Actions: write",
     );
+  });
+});
+
+describe("Rename and delete a branch", () => {
+  it("renames it after asking the new name, and moves its entry", async () => {
+    const log: Net[] = [];
+    const h = host({
+      github: (req) => {
+        log.push(req);
+        return req.url.endsWith("/branches/nim-42-old/rename")
+          ? { status: 201, body: {} }
+          : { status: 404 };
+      },
+    });
+    await loadPlugin(GitHub, h);
+    const asked = await h.runAction("rename-branch", {
+      issueId: "i-1",
+      choice: "acme/web:nim-42-old",
+    });
+    expect(asked.form?.fields[0]).toMatchObject({ value: "nim-42-old" });
+    const done = await h.runAction("rename-branch", {
+      issueId: "i-1",
+      choice: "acme/web:nim-42-old",
+      values: { name: "nim-42-new" },
+    });
+    expect(done).toMatchObject({ tone: "success", refresh: true });
+    expect(JSON.parse(log.at(-1)?.body ?? "{}")).toEqual({
+      new_name: "nim-42-new",
+    });
+    expect(h.calls.map((c) => c.method)).toContain("issueData.delete");
+  });
+
+  it("deletes it once confirmed, and its entry says so", async () => {
+    const log: Net[] = [];
+    const h = host({
+      github: (req) => {
+        log.push(req);
+        return { status: 204 };
+      },
+    });
+    await loadPlugin(GitHub, h);
+    const asked = await h.runAction("delete-branch", {
+      issueId: "i-1",
+      choice: "acme/web:nim-42-old",
+    });
+    expect(asked.form).toMatchObject({ danger: true, fields: [] });
+    expect(log).toHaveLength(0);
+    await h.runAction("delete-branch", {
+      issueId: "i-1",
+      choice: "acme/web:nim-42-old",
+      values: {},
+    });
+    expect(log[0]).toMatchObject({ method: "DELETE" });
+    expect(log[0].url).toEndWith("/repos/acme/web/git/refs/heads/nim-42-old");
+    const kept = h.calls.find((c) => c.method === "issueData.set");
+    expect(kept?.params).toMatchObject({ value: { deleted: true } });
   });
 });

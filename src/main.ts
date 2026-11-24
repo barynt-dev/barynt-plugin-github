@@ -2,7 +2,9 @@ import { Plugin } from "@barynt/plugin-sdk";
 import {
   copyBranchNameAction,
   createBranchAction,
+  deleteBranchAction,
   openPullRequestAction,
+  renameBranchAction,
   runWorkflowAction,
 } from "./actions";
 import { t } from "./i18n";
@@ -30,22 +32,48 @@ export default class GitHub extends Plugin {
     this.registerIssuePanel({
       id: "development",
       render: async (el, { issueId }) => {
-        if (issueId) await renderDevelopment(this.api, el, issueId);
+        if (issueId)
+          await renderDevelopment(this.api, el, issueId, (id, choice) =>
+            this.runAction(id, choice === undefined ? {} : { choice }),
+          );
       },
     });
     const onIssue =
-      (run: (issueId: string, choice?: string) => Promise<object>) =>
+      (
+        run: (
+          issueId: string,
+          choice?: string,
+          values?: Record<string, string>,
+        ) => Promise<object>,
+      ) =>
       async ({
         issueId,
         choice,
+        values,
       }: {
         issueId: string | null;
         choice?: string;
+        values?: Record<string, string>;
       }) =>
-        issueId ? run(issueId, choice) : { message: t("pickIssue") };
+        issueId ? run(issueId, choice, values) : { message: t("pickIssue") };
     this.registerAction({
       id: "create-branch",
-      run: onIssue((id, choice) => createBranchAction(this.api, id, choice)),
+      run: onIssue((id, choice, values) =>
+        createBranchAction(this.api, id, choice, values),
+      ),
+    });
+    // From the panel's rows only (`"where": []`).
+    this.registerAction({
+      id: "rename-branch",
+      run: onIssue((id, choice, values) =>
+        renameBranchAction(this.api, id, choice, values),
+      ),
+    });
+    this.registerAction({
+      id: "delete-branch",
+      run: onIssue((id, choice, values) =>
+        deleteBranchAction(this.api, id, choice, values),
+      ),
     });
     this.registerAction({
       id: "copy-branch-name",

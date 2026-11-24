@@ -7,7 +7,6 @@ import {
   diffStat,
   list,
   notice,
-  pickMenu,
   row,
   sectionHeader,
   stack,
@@ -15,7 +14,7 @@ import {
   text,
   user,
 } from "@barynt/plugin-sdk/ui";
-import { createBranchAction, runWorkflowAction } from "./actions";
+import { branchChoice, runWorkflowAction } from "./actions";
 import { COMMITS_SHOWN, development, latestReviews } from "./development";
 import type { PullRequest } from "./entries";
 import { branchSettings } from "./github";
@@ -130,57 +129,45 @@ export async function renderDevelopment(
   api: Api,
   el: HTMLElement,
   issueId: string,
+  /** Starts one of the plugin's actions for the issue — Barynt shows its
+   *  windows and answers (`Plugin.runAction`). */
+  run: (actionId: string, choice?: string) => void,
 ): Promise<void> {
   const data = await api.issueData.list([issueId]);
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
 
+  // "+": another branch — in a window Barynt shows, with the name and the
+  // branch it starts from to change (the `create-branch` action).
   parts.push(
-    sectionHeader({ title: t("branch"), icon: "git-branch", size: "sm" }),
+    sectionHeader({
+      title: t("branch"),
+      icon: "git-branch",
+      size: "sm",
+      actions: [
+        button({
+          label: t("createBranch"),
+          icon: "plus",
+          iconOnly: true,
+          size: "sm",
+          variant: "ghost",
+          onClick: () => run("create-branch"),
+        }),
+      ],
+    }),
   );
-  if (dev.branches.length === 0) {
-    // No branch yet: make one here, with the person's token (BARY-230).
-    const status = stack(
-      text({
-        text: t("noBranchNames"),
-        tone: "subtle",
+  if (dev.branches.length === 0)
+    parts.push(
+      text({ text: t("noBranchNames"), tone: "subtle", size: "sm" }),
+      button({
+        label: t("createBranch"),
+        icon: "git-branch",
         size: "sm",
+        variant: "secondary",
+        onClick: () => run("create-branch"),
       }),
     );
-    const created = async (choice?: string) => {
-      const result = await createBranchAction(api, issueId, choice);
-      status.replaceChildren(
-        notice({
-          text: result.message ?? t("done"),
-          tone: result.tone === "success" ? "success" : "warning",
-        }),
-      );
-    };
-    // Several repositories: the button picks which one.
-    const { repositories } = await branchSettings(api).catch(() => ({
-      repositories: [] as string[],
-    }));
-    const create =
-      repositories.length > 1
-        ? pickMenu({
-            label: t("createBranch"),
-            icon: "git-branch",
-            options: repositories.map((repo, i) => ({
-              value: repo,
-              label: repo,
-              ...(i === 0 && { hint: t("defaultRepo") }),
-            })),
-            onPick: (repo) => void created(repo),
-          }).el
-        : button({
-            label: t("createBranch"),
-            icon: "git-branch",
-            size: "sm",
-            variant: "secondary",
-            onClick: () => created(),
-          });
-    parts.push(status, create);
-  }
+  // Each branch: to copy, to open, to rename and to delete.
   for (const b of dev.branches)
     parts.push(
       copyField({
@@ -188,6 +175,19 @@ export async function renderDevelopment(
         icon: "git-branch",
         label: t("copyBranchName"),
         ...(b.url && { href: b.url }),
+        actions: [
+          {
+            icon: "pencil",
+            label: t("renameBranch"),
+            onClick: () => run("rename-branch", branchChoice(b.repo, b.name)),
+          },
+          {
+            icon: "trash",
+            label: t("deleteBranch"),
+            danger: true,
+            onClick: () => run("delete-branch", branchChoice(b.repo, b.name)),
+          },
+        ],
       }),
     );
   // The project's workflow, on the issue's branch (GitHub Actions).

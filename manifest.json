@@ -20,7 +20,9 @@
           "create-branch": "Branch erstellen",
           "copy-branch-name": "Branch-Namen kopieren",
           "open-pull-request": "Pull Request öffnen",
-          "run-workflow": "Workflow starten"
+          "run-workflow": "Workflow starten",
+          "rename-branch": "Branch umbenennen",
+          "delete-branch": "Branch löschen"
         },
         "issuePanels": {
           "development": "Entwicklung"
@@ -180,6 +182,18 @@
         "title": "Run workflow",
         "icon": "lucide:play",
         "where": ["issueMenu", "commandPalette"]
+      },
+      {
+        "id": "rename-branch",
+        "title": "Rename branch",
+        "icon": "lucide:git-branch",
+        "where": []
+      },
+      {
+        "id": "delete-branch",
+        "title": "Delete branch",
+        "icon": "lucide:git-branch",
+        "where": []
       }
     ],
     "connections": [

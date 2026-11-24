@@ -20,7 +20,7 @@ export class BranchError extends Error {}
 async function github<T>(
   api: Api,
   path: string,
-  init: { method?: "GET" | "POST"; body?: unknown } = {},
+  init: { method?: "GET" | "POST" | "DELETE"; body?: unknown } = {},
 ): Promise<{ status: number; data: T | null }> {
   const res = await api.net.fetch(`${GITHUB}${path}`, {
     method: init.method ?? "GET",
@@ -84,6 +84,9 @@ export async function createBranch(
   api: Api,
   issueId: string,
   pick?: string,
+  /** What the person set in the window: its name, and the branch it
+   *  starts from — else the proposed name, from the default branch. */
+  chosen: { name?: string; base?: string } = {},
 ): Promise<{ repo: string; name: string }> {
   const settings = await branchSettings(api);
   // Only one the project works with — never anything else.
@@ -92,11 +95,13 @@ export async function createBranch(
       ? pick
       : settings.repositories[0];
   if (!repo) throw new BranchError(t("pickRepository"));
-  const name = await proposedName(api, issueId, settings.pattern);
+  const name =
+    chosen.name?.trim() || (await proposedName(api, issueId, settings.pattern));
+  if (!validBranchName(name)) throw new BranchError(t("badBranchName"));
   const info = await github<{ default_branch?: string }>(api, `/repos/${repo}`);
   if (info.status === 404) throw new BranchError(t("repoNotShown", { repo }));
   if (info.status === 401) throw new BranchError(t("tokenRefused"));
-  const base = info.data?.default_branch;
+  const base = chosen.base?.trim() || info.data?.default_branch;
   if (!base)
     throw new BranchError(t("answeredFor", { status: info.status, repo }));
   const head = await github<{ object?: { sha?: string } }>(
@@ -113,6 +118,8 @@ export async function createBranch(
       body: { ref: `refs/heads/${candidate}`, sha },
     });
     if (made.status === 201) {
+      // GitHub doesn't tell the app what it did itself: kept here.
+      await recordBranch(api, issueId, repo, candidate, false);
       if (settings.assign || settings.status)
         await api.issues.update(issueId, {
           ...(settings.assign && { assignee: "me" }),
@@ -157,4 +164,128 @@ export async function runWorkflow(
           ? t("workflowNoRight")
           : t("answered", { status: res.status }),
   );
+}
+
+/** Git's rules for a branch's name, the ones a person runs into. */
+export function validBranchName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name.length <= 250 &&
+    !/[\s~^:?*[\\\x00-\x1f\x7f]/.test(name) &&
+    !name.includes("..") &&
+    !name.includes("@{") &&
+    !name.startsWith("/") &&
+    !name.endsWith("/") &&
+    !name.endsWith(".") &&
+    !name.endsWith(".lock") &&
+    !name.includes("//")
+  );
+}
+
+const repoPath = (repo: string) =>
+  `/repos/${repo.split("/").map(encodeURIComponent).join("/")}`;
+const refPath = (name: string) =>
+  name.split("/").map(encodeURIComponent).join("/");
+
+/** A repository's branches to start from: its default first, then the
+ *  others by name — up to a hundred. */
+export async function branchesOf(
+  api: Api,
+  repo: string,
+): Promise<{ base: string | null; branches: string[] }> {
+  const [info, list] = await Promise.all([
+    github<{ default_branch?: string }>(api, repoPath(repo)),
+    github<{ name?: string }[]>(api, `${repoPath(repo)}/branches?per_page=100`),
+  ]);
+  const base = info.data?.default_branch ?? null;
+  const names = (Array.isArray(list.data) ? list.data : [])
+    .map((b) => b.name)
+    .filter((n): n is string => typeof n === "string" && n !== base)
+    .sort((a, b) => a.localeCompare(b));
+  return { base, branches: base ? [base, ...names] : names };
+}
+
+/** The plugin-data key Barynt keeps a branch under — the same as its
+ *  GitHub link does, so a later event updates this one. */
+export async function branchKey(repo: string, name: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(name),
+  );
+  const hex = [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
+  return `branch:${repo.replace(/[^A-Za-z0-9_.-]/g, ":")}:${hex}`;
+}
+
+/** Keeps the issue's entry for a branch — GitHub doesn't report back what
+ *  the app did itself. Best effort: the branch is there either way. */
+export async function recordBranch(
+  api: Api,
+  issueId: string,
+  repo: string,
+  name: string,
+  deleted: boolean,
+): Promise<void> {
+  try {
+    await api.issueData.set(issueId, await branchKey(repo, name), {
+      kind: "branch",
+      repo,
+      name,
+      url: deleted ? null : `https://github.com/${repo}/tree/${refPath(name)}`,
+      deleted,
+      at: new Date().toISOString(),
+    });
+  } catch {}
+}
+
+/** Renames one of the issue's branches; its entry follows. */
+export async function renameBranch(
+  api: Api,
+  issueId: string,
+  repo: string,
+  from: string,
+  to: string,
+): Promise<void> {
+  if (!validBranchName(to)) throw new BranchError(t("badBranchName"));
+  const res = await github(
+    api,
+    `${repoPath(repo)}/branches/${refPath(from)}/rename`,
+    { method: "POST", body: { new_name: to } },
+  );
+  if (res.status !== 201)
+    throw new BranchError(
+      res.status === 422
+        ? t("branchNameTaken", { name: to })
+        : res.status === 403 || res.status === 404
+          ? t("noWriteRight", { repo })
+          : t("answered", { status: res.status }),
+    );
+  try {
+    await api.issueData.delete(issueId, await branchKey(repo, from));
+  } catch {}
+  await recordBranch(api, issueId, repo, to, false);
+}
+
+/** Deletes one of the issue's branches on GitHub; its entry says so. */
+export async function deleteBranch(
+  api: Api,
+  issueId: string,
+  repo: string,
+  name: string,
+): Promise<void> {
+  const res = await github(
+    api,
+    `${repoPath(repo)}/git/refs/heads/${refPath(name)}`,
+    { method: "DELETE" },
+  );
+  // Gone already counts as done.
+  if (res.status !== 204 && res.status !== 422)
+    throw new BranchError(
+      res.status === 403 || res.status === 404
+        ? t("noWriteRight", { repo })
+        : t("answered", { status: res.status }),
+    );
+  await recordBranch(api, issueId, repo, name, true);
 }
