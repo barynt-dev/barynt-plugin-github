@@ -97,6 +97,9 @@
               "deployed-production": "In Produktion deployt"
             }
           }
+        },
+        "connections": {
+          "github": "Allgemein"
         }
       },
       "previews": {
@@ -181,7 +184,7 @@
     "connections": [
       {
         "id": "github",
-        "title": "GitHub",
+        "title": "General",
         "provider": "github"
       }
     ],
@@ -230,7 +233,8 @@
             "hint": "web-42"
           }
         ],
-        "group": "Branches"
+        "group": "Branches",
+        "groupIcon": "lucide:git-branch"
       },
       {
         "key": "branchAssign",
@@ -251,6 +255,7 @@
         "type": "text",
         "label": "Workflow to run",
         "group": "GitHub Actions",
+        "groupIcon": "lucide:workflow",
         "description": "A file in .github/workflows, e.g. deploy.yml. \"Run workflow\" starts it on the issue's branch; it needs on: workflow_dispatch. Empty: no action."
       }
     ],
