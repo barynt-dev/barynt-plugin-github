@@ -114,9 +114,10 @@ pull request row opens the issue there.
 
 In an issue's menu ("…"), a card's quick actions and the command palette:
 
-- **Create branch** — in the project's first repository, from its default
-  branch, named after the pattern in the settings (`{type}/{key}-{title}`
-  by default: `feature/web-42-keep-the-cookie`); a taken name gets `-2`. With
+- **Create branch** — in one of the project's repositories (with several it
+  asks which; the first is the default), from its default branch, named
+  after the pattern in the settings (`{type}/{key}-{title}` by default:
+  `feature/web-42-keep-the-cookie`); a taken name gets `-2`. With
   your own token if you keep one, else through the connection. As the
   project set it,
   the issue is then assigned to you and moved to a status. The panel has

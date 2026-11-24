@@ -75,17 +75,22 @@ export async function proposedName(
 }
 
 /**
- * Creates the issue's branch in the project's first repository, from its
- * default branch — under the next free name if it's taken (`-2` … `-5`).
+ * Creates the issue's branch in one of the project's repositories — `repo`,
+ * else its first — from its default branch — under the next free name if it's taken (`-2` … `-5`).
  * Then, as the project set it, assigns the issue to the person and sets
  * its status. Throws a `BranchError` that says what to do.
  */
 export async function createBranch(
   api: Api,
   issueId: string,
+  pick?: string,
 ): Promise<{ repo: string; name: string }> {
   const settings = await branchSettings(api);
-  const repo = settings.repositories[0];
+  // Only one the project works with — never anything else.
+  const repo =
+    pick && settings.repositories.includes(pick)
+      ? pick
+      : settings.repositories[0];
   if (!repo) throw new BranchError(t("pickRepository"));
   const name = await proposedName(api, issueId, settings.pattern);
   const info = await github<{ default_branch?: string }>(api, `/repos/${repo}`);

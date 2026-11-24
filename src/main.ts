@@ -34,12 +34,18 @@ export default class GitHub extends Plugin {
       },
     });
     const onIssue =
-      (run: (issueId: string) => Promise<object>) =>
-      async ({ issueId }: { issueId: string | null }) =>
-        issueId ? run(issueId) : { message: t("pickIssue") };
+      (run: (issueId: string, choice?: string) => Promise<object>) =>
+      async ({
+        issueId,
+        choice,
+      }: {
+        issueId: string | null;
+        choice?: string;
+      }) =>
+        issueId ? run(issueId, choice) : { message: t("pickIssue") };
     this.registerAction({
       id: "create-branch",
-      run: onIssue((id) => createBranchAction(this.api, id)),
+      run: onIssue((id, choice) => createBranchAction(this.api, id, choice)),
     });
     this.registerAction({
       id: "copy-branch-name",

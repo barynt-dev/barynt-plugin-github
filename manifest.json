@@ -31,7 +31,7 @@
         "settings": {
           "repositories": {
             "label": "Repositories",
-            "description": "Die Repositories, mit denen dieses Projekt arbeitet – aus den oben verbundenen GitHub-Konten. Branches entstehen im ersten."
+            "description": "Die Repositories, mit denen dieses Projekt arbeitet – aus den oben verbundenen GitHub-Konten. Mehrere sind möglich; Branches entstehen standardmäßig im ersten."
           },
           "branchPattern": {
             "label": "Branch-Name",
@@ -193,7 +193,7 @@
         "key": "repositories",
         "type": "repositories",
         "label": "Repositories",
-        "description": "The repositories this project works with — from the GitHub accounts connected above. Branches are created in the first."
+        "description": "The repositories this project works with — from the GitHub accounts connected above. Several are fine; branches go to the first by default."
       },
       {
         "key": "branchPattern",

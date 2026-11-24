@@ -47,12 +47,35 @@ async function knownBranch(api: Api, issueId: string) {
   };
 }
 
+/** With several repositories, which one the branch goes to — the first is
+ *  where branches go by default. */
+export async function branchRepoPick(api: Api): Promise<ActionResult | null> {
+  const { repositories } = await branchSettings(api);
+  if (repositories.length < 2) return null;
+  return {
+    pick: {
+      title: t("pickBranchRepo"),
+      options: repositories.map((repo, i) => ({
+        id: repo,
+        label: repo,
+        ...(i === 0 && { hint: t("defaultRepo") }),
+      })),
+    },
+  };
+}
+
 export async function createBranchAction(
   api: Api,
   issueId: string,
+  choice?: string,
 ): Promise<ActionResult> {
   try {
-    const { repo, name } = await createBranch(api, issueId);
+    // Several repositories: which one, first.
+    if (!choice) {
+      const pick = await branchRepoPick(api);
+      if (pick) return pick;
+    }
+    const { repo, name } = await createBranch(api, issueId, choice);
     return {
       message: t("branchCreated", { name, repo }),
       tone: "success",

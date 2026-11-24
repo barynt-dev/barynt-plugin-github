@@ -66,6 +66,47 @@ function fakeGitHub(taken: string[] = [], log: Net[] = []) {
 }
 
 describe("Create branch", () => {
+  it("asks which repository with several, then creates it in the one picked", async () => {
+    const log: Net[] = [];
+    const h = host({
+      settings: { repositories: ["acme/api", "acme/web"] },
+      github: fakeGitHub([], log),
+    });
+    await loadPlugin(GitHub, h);
+    const asked = await h.runAction("create-branch", { issueId: "i-1" });
+    expect(asked).toMatchObject({
+      pick: {
+        options: [
+          { id: "acme/api", label: "acme/api" },
+          { id: "acme/web", label: "acme/web" },
+        ],
+      },
+    });
+    expect(log).toHaveLength(0);
+    const done = await h.runAction("create-branch", {
+      issueId: "i-1",
+      choice: "acme/web",
+    });
+    expect(done).toMatchObject({ tone: "success" });
+    expect(log.some((r) => r.url.endsWith("/repos/acme/web/git/refs"))).toBe(
+      true,
+    );
+  });
+
+  it("never creates it in a repository the project doesn't work with", async () => {
+    const log: Net[] = [];
+    const h = host({
+      settings: { repositories: ["acme/web", "acme/api"] },
+      github: fakeGitHub([], log),
+    });
+    await loadPlugin(GitHub, h);
+    await h.runAction("create-branch", { issueId: "i-1", choice: "evil/repo" });
+    expect(log.some((r) => r.url.includes("evil/repo"))).toBe(false);
+    expect(log.some((r) => r.url.endsWith("/repos/acme/web/git/refs"))).toBe(
+      true,
+    );
+  });
+
   it("creates it from the default branch, assigns the issue and sets its status", async () => {
     const log: Net[] = [];
     const h = host({

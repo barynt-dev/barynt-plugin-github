@@ -7,6 +7,7 @@ import {
   diffStat,
   list,
   notice,
+  pickMenu,
   row,
   sectionHeader,
   stack,
@@ -144,21 +145,38 @@ export async function renderDevelopment(
         size: "sm",
       }),
     );
-    const create = button({
-      label: t("createBranch"),
-      icon: "git-branch",
-      size: "sm",
-      variant: "secondary",
-      onClick: async () => {
-        const result = await createBranchAction(api, issueId);
-        status.replaceChildren(
-          notice({
-            text: result.message ?? t("done"),
-            tone: result.tone === "success" ? "success" : "warning",
-          }),
-        );
-      },
-    });
+    const created = async (choice?: string) => {
+      const result = await createBranchAction(api, issueId, choice);
+      status.replaceChildren(
+        notice({
+          text: result.message ?? t("done"),
+          tone: result.tone === "success" ? "success" : "warning",
+        }),
+      );
+    };
+    // Several repositories: the button picks which one.
+    const { repositories } = await branchSettings(api).catch(() => ({
+      repositories: [] as string[],
+    }));
+    const create =
+      repositories.length > 1
+        ? pickMenu({
+            label: t("createBranch"),
+            icon: "git-branch",
+            options: repositories.map((repo, i) => ({
+              value: repo,
+              label: repo,
+              ...(i === 0 && { hint: t("defaultRepo") }),
+            })),
+            onPick: (repo) => void created(repo),
+          }).el
+        : button({
+            label: t("createBranch"),
+            icon: "git-branch",
+            size: "sm",
+            variant: "secondary",
+            onClick: () => created(),
+          });
     parts.push(status, create);
   }
   for (const b of dev.branches)

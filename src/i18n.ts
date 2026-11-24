@@ -16,7 +16,9 @@ const en = {
 
   // Creating a branch
   pickRepository:
-    "Pick a repository in the project's settings → Plugins → GitHub.",
+    "Pick a repository under Settings → Plugins → GitHub, tab Project.",
+  pickBranchRepo: "Create the branch in which repository?",
+  defaultRepo: "Where branches go by default",
   repoNotShown:
     "GitHub doesn't show {repo} — share it with the app, or keep a token that sees it.",
   tokenRefused: "GitHub doesn't accept the token any more.",
@@ -84,7 +86,9 @@ export const t = translator({
     done: "Erledigt.",
 
     pickRepository:
-      "Wähle ein Repository in den Projekteinstellungen → Plugins → GitHub.",
+      "Wähle ein Repository unter Einstellungen → Plugins → GitHub, Tab Projekt.",
+    pickBranchRepo: "In welchem Repository soll der Branch entstehen?",
+    defaultRepo: "Standard für neue Branches",
     repoNotShown:
       "GitHub zeigt {repo} nicht – gib es für die App frei oder hinterlege ein Token, das es sieht.",
     tokenRefused: "GitHub akzeptiert das Token nicht mehr.",
