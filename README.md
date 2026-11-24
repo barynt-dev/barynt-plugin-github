@@ -66,15 +66,15 @@ off — saved with the page's **Save** button:
 
 **Pull requests**, along their way:
 
-| Rule | e.g. |
-| --- | --- |
-| Opened as a draft | _In Progress_ |
-| Opened or ready for review | _In Review_ |
-| Review requested | _In Review_ |
-| Approved | _Ready_ |
-| Changes requested | _In Progress_ |
-| Merged | _Done_ |
-| Closed without merging | _Todo_ |
+| Rule                       | e.g.          |
+| -------------------------- | ------------- |
+| Opened as a draft          | _In Progress_ |
+| Opened or ready for review | _In Review_   |
+| Review requested           | _In Review_   |
+| Approved                   | _Ready_       |
+| Changes requested          | _In Progress_ |
+| Merged                     | _Done_        |
+| Closed without merging     | _Todo_        |
 
 **Target branches** limits them to pull requests into these branches —
 `main, release/*`; empty: all. So a merge into `develop` doesn't mark an
@@ -82,6 +82,17 @@ issue _Done_.
 
 **Checks & Actions:** _Checks failed on the branch_ — any check on the
 issue's branch, GitHub Actions included, e.g. _Blocked_.
+
+**Deployments:** _Deployed to a test environment_ (staging, a preview) and
+_Deployed to production_ — as GitHub marks the environment, e.g. _On
+Staging_ and _Live_. A preview of the issue's branch names it; for a
+deployment of `main`, Barynt asks GitHub which commits came since the
+environment's deployment before and moves the issues they close (a merged
+pull request, "Fixes WEB-42").
+
+**Link the issues in the pull request** (switch under _Pull requests_):
+once a pull request works on issues, Barynt comments on it with a link to
+each — once, as the GitHub App.
 
 Barynt sets the status as "GitHub (App)" and comments why — only for an
 issue the pull request (or the branch) works on: its key in the branch's
@@ -95,8 +106,9 @@ description. An issue already there stays as it is.
 The **Development** panel in the issue's sidebar shows its branch (copy
 the name, open it on GitHub), its pull requests with their state, checks,
 size and — with your own GitHub token — who reviewed, and the commits that
-name it (five, then "Show all"). A click on a card's pull request row opens
-the issue there.
+name it (five, then "Show all"), and where it was deployed. With a
+workflow set, **Run workflow** starts it on the branch. A click on a card's
+pull request row opens the issue there.
 
 ## Actions
 
@@ -112,6 +124,14 @@ In an issue's menu ("…"), a card's quick actions and the command palette:
 - **Copy branch name** — the issue's branch, or the name it would get.
 - **Open pull request** — its open pull request, or GitHub's page to open
   one for its branch, the title starting with the issue's key.
+- **Run workflow** — the workflow set under _GitHub Actions_ (a file in
+  `.github/workflows`, with `on: workflow_dispatch`), on the issue's
+  branch.
+
+Commenting, running workflows and deployments need the GitHub App's
+newer permissions (_Pull requests_ and _Actions_: write, _Deployments_:
+read). An app made before asks for them in **Admin → Plugins**; each
+installation's owner then accepts them once on GitHub.
 
 ## Settings
 
@@ -122,13 +142,13 @@ the issue, and which status it gets then.
 
 The branch name's pattern is free to type, or picked from **Suggestions**:
 
-| Suggestion | Pattern | Example |
-| --- | --- | --- |
+| Suggestion                    | Pattern                | Example                          |
+| ----------------------------- | ---------------------- | -------------------------------- |
 | Type, key and title (default) | `{type}/{key}-{title}` | `feature/web-42-keep-the-cookie` |
-| Key and title | `{key}-{title}` | `web-42-keep-the-cookie` |
-| Login, key and title | `{user}/{key}-{title}` | `ada/web-42-keep-the-cookie` |
-| Type and key | `{type}/{key}` | `feature/web-42` |
-| Key only | `{key}` | `web-42` |
+| Key and title                 | `{key}-{title}`        | `web-42-keep-the-cookie`         |
+| Login, key and title          | `{user}/{key}-{title}` | `ada/web-42-keep-the-cookie`     |
+| Type and key                  | `{type}/{key}`         | `feature/web-42`                 |
+| Key only                      | `{key}`                | `web-42`                         |
 
 `{type}` is `bugfix` for a bug, `chore` for a chore and `feature` for
 everything else — the prefixes of the [Conventional Branch](https://conventional-branch.github.io/)

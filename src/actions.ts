@@ -10,6 +10,7 @@ import {
   branchSettings,
   createBranch,
   proposedName,
+  runWorkflow,
 } from "./github";
 import { t } from "./i18n";
 
@@ -93,4 +94,27 @@ export async function openPullRequestAction(
   return {
     open: compareUrl(branch.repo, branch.name, `${issue.ref}: ${issue.title}`),
   };
+}
+
+/** Starts the project's workflow on the issue's branch (GitHub Actions). */
+export async function runWorkflowAction(
+  api: Api,
+  issueId: string,
+): Promise<ActionResult> {
+  try {
+    const { workflow } = await branchSettings(api);
+    if (!workflow) return { message: t("pickWorkflow"), tone: "warning" };
+    const { branch } = await knownBranch(api, issueId);
+    if (!branch) return { message: t("noBranchYet"), tone: "warning" };
+    await runWorkflow(api, branch.repo, branch.name, workflow);
+    return {
+      message: t("workflowStarted", { workflow, branch: branch.name }).slice(
+        0,
+        120,
+      ),
+      tone: "success",
+    };
+  } catch (error) {
+    return explain(error);
+  }
 }

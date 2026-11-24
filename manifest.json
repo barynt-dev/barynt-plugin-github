@@ -19,7 +19,8 @@
         "actions": {
           "create-branch": "Branch erstellen",
           "copy-branch-name": "Branch-Namen kopieren",
-          "open-pull-request": "Pull Request öffnen"
+          "open-pull-request": "Pull Request öffnen",
+          "run-workflow": "Workflow starten"
         },
         "issuePanels": {
           "development": "Entwicklung"
@@ -67,6 +68,11 @@
             "label": "Status, wenn ein Branch erstellt wird",
             "description": "Leer lassen, um den Status zu behalten.",
             "group": "Branches"
+          },
+          "workflow": {
+            "label": "Zu startender Workflow",
+            "group": "GitHub Actions",
+            "description": "Eine Datei in .github/workflows, z. B. deploy.yml. „Workflow starten“ startet ihn auf dem Branch des Issues; er braucht on: workflow_dispatch. Leer: keine Aktion."
           }
         },
         "credentials": {
@@ -86,7 +92,9 @@
               "changes-requested": "Änderungen gewünscht",
               "merged": "Gemergt",
               "closed": "Ohne Merge geschlossen",
-              "checks-failed": "Checks auf dem Branch fehlgeschlagen"
+              "checks-failed": "Checks auf dem Branch fehlgeschlagen",
+              "deployed-test": "Auf eine Testumgebung deployt",
+              "deployed-production": "In Produktion deployt"
             }
           }
         }
@@ -119,9 +127,7 @@
   "logo": "logo.png",
   "license": "MIT",
   "kind": "sandbox",
-  "levels": [
-    "project"
-  ],
+  "levels": ["project"],
   "capabilities": [
     "issues:read",
     "issues:write",
@@ -131,9 +137,7 @@
     "ui:issue-panel",
     "ui:action"
   ],
-  "network": [
-    "api.github.com"
-  ],
+  "network": ["api.github.com"],
   "contributes": {
     "issueBadges": [
       {
@@ -153,30 +157,25 @@
         "id": "create-branch",
         "title": "Create branch",
         "icon": "lucide:git-branch",
-        "where": [
-          "issueMenu",
-          "cardMenu",
-          "commandPalette"
-        ]
+        "where": ["issueMenu", "cardMenu", "commandPalette"]
       },
       {
         "id": "copy-branch-name",
         "title": "Copy branch name",
         "icon": "lucide:git-branch",
-        "where": [
-          "issueMenu",
-          "cardMenu",
-          "commandPalette"
-        ]
+        "where": ["issueMenu", "cardMenu", "commandPalette"]
       },
       {
         "id": "open-pull-request",
         "title": "Open pull request",
         "icon": "lucide:git-pull-request",
-        "where": [
-          "issueMenu",
-          "commandPalette"
-        ]
+        "where": ["issueMenu", "commandPalette"]
+      },
+      {
+        "id": "run-workflow",
+        "title": "Run workflow",
+        "icon": "lucide:play",
+        "where": ["issueMenu", "commandPalette"]
       }
     ],
     "connections": [
@@ -246,6 +245,13 @@
         "label": "Status when a branch is created",
         "description": "Leave empty to keep the status.",
         "group": "Branches"
+      },
+      {
+        "key": "workflow",
+        "type": "text",
+        "label": "Workflow to run",
+        "group": "GitHub Actions",
+        "description": "A file in .github/workflows, e.g. deploy.yml. \"Run workflow\" starts it on the issue's branch; it needs on: workflow_dispatch. Empty: no action."
       }
     ],
     "credentials": [
@@ -304,6 +310,16 @@
             "id": "checks-failed",
             "title": "Checks failed on the branch",
             "on": "checks.failed"
+          },
+          {
+            "id": "deployed-test",
+            "title": "Deployed to a test environment",
+            "on": "deployment.test"
+          },
+          {
+            "id": "deployed-production",
+            "title": "Deployed to production",
+            "on": "deployment.production"
           }
         ]
       }

@@ -141,6 +141,8 @@ describe("the GitHub plugin", () => {
       "pull_request.merged",
       "pull_request.closed",
       "checks.failed",
+      "deployment.test",
+      "deployment.production",
     ]);
     expect(manifest.capabilities).toContain("issues:write");
     expect("service" in manifest).toBe(false);

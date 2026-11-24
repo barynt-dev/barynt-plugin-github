@@ -18,7 +18,7 @@ Pick a status for each step of a pull request — draft, opened, review requeste
 
 ## Actions
 
-From an issue's menu, a card or the command palette: **Create branch** (named after your project's pattern, e.g. `feature/web-42-fix-login`), **Copy branch name** and **Open pull request**.
+From an issue's menu, a card or the command palette: **Create branch** (named after your project's pattern, e.g. `feature/web-42-fix-login`), **Copy branch name**, **Open pull request** and **Run workflow** (GitHub Actions, on the issue's branch). Deployments move issues too: to a test environment or to production. And Barynt links the issues in their pull request.
 
 ## Setup
 

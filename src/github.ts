@@ -45,6 +45,11 @@ export async function branchSettings(api: Api) {
         : DEFAULT_PATTERN,
     assign: s.branchAssign !== false,
     status: typeof s.branchStatus === "string" ? s.branchStatus : null,
+    /** The workflow "Run workflow" starts — a file in .github/workflows. */
+    workflow:
+      typeof s.workflow === "string" && s.workflow.trim()
+        ? s.workflow.trim()
+        : null,
   };
 }
 
@@ -119,4 +124,32 @@ export async function createBranch(
       );
   }
   throw new BranchError(t("namesTaken", { name, repo }));
+}
+
+/**
+ * Starts the project's workflow on a branch (`workflow_dispatch`), with the
+ * person's token or the connection's app (Actions: write). Throws a
+ * `BranchError` that says what to do.
+ */
+export async function runWorkflow(
+  api: Api,
+  repo: string,
+  branch: string,
+  workflow: string,
+): Promise<void> {
+  const res = await github(
+    api,
+    `/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,
+    { method: "POST", body: { ref: branch } },
+  );
+  if (res.status === 204) return;
+  throw new BranchError(
+    res.status === 404
+      ? t("workflowNotFound", { workflow, repo })
+      : res.status === 422
+        ? t("workflowNoDispatch", { workflow })
+        : res.status === 403
+          ? t("workflowNoRight")
+          : t("answered", { status: res.status }),
+  );
 }

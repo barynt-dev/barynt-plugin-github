@@ -5,6 +5,7 @@ import {
   card,
   copyField,
   diffStat,
+  list,
   notice,
   row,
   sectionHeader,
@@ -13,9 +14,10 @@ import {
   text,
   user,
 } from "@barynt/plugin-sdk/ui";
-import { createBranchAction } from "./actions";
+import { createBranchAction, runWorkflowAction } from "./actions";
 import { COMMITS_SHOWN, development, latestReviews } from "./development";
 import type { PullRequest } from "./entries";
+import { branchSettings } from "./github";
 import { t } from "./i18n";
 import { prLook } from "./row";
 
@@ -168,6 +170,42 @@ export async function renderDevelopment(
         ...(b.url && { href: b.url }),
       }),
     );
+  // The project's workflow, on the issue's branch (GitHub Actions).
+  if (dev.branches.length > 0) {
+    const { workflow } = await branchSettings(api).catch(() => ({
+      workflow: null,
+    }));
+    if (workflow) {
+      const status = stack();
+      parts.push(
+        row(
+          button({
+            label: t("runWorkflow"),
+            icon: "play",
+            size: "sm",
+            variant: "secondary",
+            onClick: async () => {
+              const result = await runWorkflowAction(api, issueId);
+              status.replaceChildren(
+                notice({
+                  text: result.message ?? t("done"),
+                  tone: result.tone === "success" ? "success" : "warning",
+                }),
+              );
+            },
+          }),
+          text({
+            text: workflow,
+            mono: true,
+            size: "xs",
+            tone: "subtle",
+            inline: true,
+          }),
+        ),
+        status,
+      );
+    }
+  }
 
   if (dev.pullRequests.length > 0) {
     parts.push(
@@ -218,6 +256,43 @@ export async function renderDevelopment(
     };
     show(COMMITS_SHOWN);
     parts.push(list);
+  }
+
+  if (dev.deployments.length > 0) {
+    parts.push(
+      sectionHeader({
+        title: t("deployments"),
+        icon: "rocket",
+        meta: String(dev.deployments.length),
+      }),
+      list({
+        items: dev.deployments.map((d) => ({
+          title: d.environment,
+          icon: d.production ? ("rocket" as const) : ("globe" as const),
+          meta: [d.repo, ago(d.at)].join(" · "),
+          ...(d.url && { href: d.url }),
+          aside: [
+            ...(d.production
+              ? [badge({ text: t("production"), tone: "primary" })]
+              : []),
+            badge({
+              text:
+                d.state === "success"
+                  ? t("deployedOk")
+                  : d.state === "failure"
+                    ? t("deployFailed")
+                    : t("deploying"),
+              tone:
+                d.state === "success"
+                  ? "success"
+                  : d.state === "failure"
+                    ? "danger"
+                    : "neutral",
+            }),
+          ],
+        })),
+      }),
+    );
   }
 
   const panel = stack(...parts);

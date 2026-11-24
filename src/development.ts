@@ -1,5 +1,5 @@
 import type { StepState } from "@barynt/plugin-sdk/ui";
-import type { CheckState, Checks, PullRequest } from "./entries";
+import type { CheckState, Checks, Deployment, PullRequest } from "./entries";
 import { sortEntries } from "./entries";
 
 // What the "Development" panel shows for an issue (BARY-229), worked out
@@ -29,12 +29,15 @@ export interface Development {
     author: string | null;
     at: string;
   }[];
+  /** Where it was deployed, production first, then newest. */
+  deployments: Deployment[];
 }
 
 export function development(
   raw: { key: string; value: unknown }[],
 ): Development {
-  const { pullRequests, branches, commits, checks } = sortEntries(raw);
+  const { pullRequests, branches, commits, checks, deployments } =
+    sortEntries(raw);
   const checksOf = (pr: PullRequest): Checks | undefined =>
     checks.find((c) => c.repo === pr.repo && c.branch === pr.branch);
   return {
@@ -55,6 +58,9 @@ export function development(
       author: c.author,
       at: c.at,
     })),
+    deployments: [...deployments].sort(
+      (a, b) => Number(b.production) - Number(a.production),
+    ),
   };
 }
 

@@ -18,7 +18,7 @@ Wähle einen Status für jeden Schritt eines Pull Requests — Entwurf, geöffne
 
 ## Aktionen
 
-Im Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erstellen** (benannt nach dem Muster deines Projekts, z. B. `feature/web-42-fix-login`), **Branch-Namen kopieren** und **Pull Request öffnen**.
+Im Menü eines Issues, auf einer Karte oder in der Befehlspalette: **Branch erstellen** (benannt nach dem Muster deines Projekts, z. B. `feature/web-42-fix-login`), **Branch-Namen kopieren**, **Pull Request öffnen** und **Workflow starten** (GitHub Actions, auf dem Branch des Issues). Auch Deployments bewegen Issues: auf eine Testumgebung oder in Produktion. Und Barynt verlinkt die Issues in ihrem Pull Request.
 
 ## Einrichten
 

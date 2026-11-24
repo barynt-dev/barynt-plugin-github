@@ -179,3 +179,60 @@ describe("Copy branch name and Open pull request", () => {
     ).toBe("warning");
   });
 });
+
+describe("Run workflow (BARY-238)", () => {
+  const branch = {
+    kind: "branch",
+    repo: "acme/web",
+    name: "ada/nim-42-cookie",
+    url: null,
+    deleted: false,
+    at: "2026-11-19T10:00:00Z",
+  };
+
+  it("starts the project's workflow on the issue's branch", async () => {
+    const log: Net[] = [];
+    const h = host({
+      settings: { workflow: "deploy.yml" },
+      entries: [branch],
+      github: (req) => {
+        log.push(req);
+        return { status: 204 };
+      },
+    });
+    await loadPlugin(GitHub, h);
+    const result = await h.runAction("run-workflow", { issueId: "i-1" });
+    expect(result).toMatchObject({ tone: "success" });
+    expect(result.message).toContain("deploy.yml");
+    expect(log[0]).toMatchObject({
+      url: "https://api.github.com/repos/acme/web/actions/workflows/deploy.yml/dispatches",
+      method: "POST",
+    });
+    expect(JSON.parse(log[0].body ?? "{}")).toEqual({
+      ref: "ada/nim-42-cookie",
+    });
+  });
+
+  it("says what's missing: a workflow, a branch, or what GitHub refused", async () => {
+    const run = async (
+      settings: Record<string, unknown>,
+      entries: unknown[],
+      status = 204,
+    ) => {
+      const h = host({ settings, entries, github: () => ({ status }) });
+      await loadPlugin(GitHub, h);
+      return (await h.runAction("run-workflow", { issueId: "i-1" })).message;
+    };
+    expect(await run({}, [branch])).toContain("workflow");
+    expect(await run({ workflow: "ci.yml" }, [])).toContain("No branch");
+    expect(await run({ workflow: "ci.yml" }, [branch], 422)).toContain(
+      "workflow_dispatch",
+    );
+    expect(await run({ workflow: "ci.yml" }, [branch], 404)).toContain(
+      "doesn't know",
+    );
+    expect(await run({ workflow: "ci.yml" }, [branch], 403)).toContain(
+      "Actions: write",
+    );
+  });
+});

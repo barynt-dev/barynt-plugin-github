@@ -3,6 +3,7 @@ import {
   copyBranchNameAction,
   createBranchAction,
   openPullRequestAction,
+  runWorkflowAction,
 } from "./actions";
 import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
@@ -47,6 +48,10 @@ export default class GitHub extends Plugin {
     this.registerAction({
       id: "open-pull-request",
       run: onIssue((id) => openPullRequestAction(this.api, id)),
+    });
+    this.registerAction({
+      id: "run-workflow",
+      run: onIssue((id) => runWorkflowAction(this.api, id)),
     });
   }
 }

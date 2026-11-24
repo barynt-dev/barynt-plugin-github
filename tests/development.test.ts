@@ -93,3 +93,30 @@ describe("latestReviews()", () => {
     ).toEqual([{ login: "tom", state: "approved" }]);
   });
 });
+
+describe("deployments (BARY-238)", () => {
+  it("lists where it went, production first", () => {
+    const deploy = (environment: string, production: boolean, at: string) => ({
+      key: `deploy:${environment}`,
+      value: {
+        kind: "deployment",
+        repo: "acme/web",
+        environment,
+        production,
+        state: "success",
+        ref: "main",
+        sha: "abc",
+        url: null,
+        at,
+      },
+    });
+    const dev = development([
+      deploy("staging", false, "2026-11-20T10:00:00Z"),
+      deploy("production", true, "2026-11-19T10:00:00Z"),
+    ]);
+    expect(dev.deployments.map((d) => d.environment)).toEqual([
+      "production",
+      "staging",
+    ]);
+  });
+});

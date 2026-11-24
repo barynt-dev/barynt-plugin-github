@@ -52,6 +52,24 @@ const en = {
   pullRequests: "Pull requests",
   commits: "Commits",
   showAll: "Show all {count}",
+
+  // GitHub Actions (BARY-238)
+  pickWorkflow:
+    "Name a workflow in the project's settings → Plugins → GitHub first.",
+  workflowStarted: "{workflow} started on {branch}.",
+  workflowNotFound: "GitHub doesn't know the workflow {workflow} in {repo}.",
+  workflowNoDispatch:
+    "{workflow} can't be started by hand — it needs `on: workflow_dispatch`.",
+  workflowNoRight:
+    "No right to start workflows — the GitHub App needs Actions: write.",
+  runWorkflow: "Run workflow",
+
+  // Deployments
+  deployments: "Deployments",
+  deployedOk: "Deployed",
+  deployFailed: "Failed",
+  deploying: "Deploying",
+  production: "Production",
 };
 
 export const t = translator({
@@ -101,5 +119,21 @@ export const t = translator({
     pullRequests: "Pull Requests",
     commits: "Commits",
     showAll: "Alle {count} anzeigen",
+
+    pickWorkflow:
+      "Trage zuerst einen Workflow in den Projekteinstellungen → Plugins → GitHub ein.",
+    workflowStarted: "{workflow} auf {branch} gestartet.",
+    workflowNotFound: "GitHub kennt den Workflow {workflow} in {repo} nicht.",
+    workflowNoDispatch:
+      "{workflow} lässt sich nicht von Hand starten – er braucht `on: workflow_dispatch`.",
+    workflowNoRight:
+      "Keine Rechte, Workflows zu starten – die GitHub App braucht Actions: write.",
+    runWorkflow: "Workflow starten",
+
+    deployments: "Deployments",
+    deployedOk: "Deployt",
+    deployFailed: "Fehlgeschlagen",
+    deploying: "Läuft",
+    production: "Produktion",
   },
 });
