@@ -5,7 +5,6 @@ import {
   card,
   copyField,
   diffStat,
-  emptyState,
   link,
   list,
   notice,
@@ -300,22 +299,23 @@ async function startHere(
 ): Promise<HTMLElement> {
   const settings = await branchSettings(api).catch(() => null);
   const repo = settings?.repositories[0];
+  // Quiet: a line, what to do, nothing more.
   const box = (
-    title: string,
     body: string,
     action: HTMLElement,
     extra: HTMLElement[] = [],
   ) => {
     const node = stack(
-      emptyState({ title, text: body, icon: "git-branch", action }),
+      text({ text: body, tone: "subtle", size: "sm" }),
+      row(action),
       ...extra,
     );
     node.style.padding = "0.25rem 0 0.5rem";
+    node.style.gap = "0.5rem";
     return node;
   };
   if (!settings || !repo)
     return box(
-      t("noRepoTitle"),
       t("noRepoText"),
       button({
         label: t("connectRepo"),
@@ -327,7 +327,6 @@ async function startHere(
     );
   if (!(await canReach(api, repo)))
     return box(
-      t("noAccessTitle"),
       t("noAccessText"),
       button({
         label: t("connectGitHub"),
@@ -341,17 +340,17 @@ async function startHere(
     () => null,
   );
   return box(
-    t("startTitle"),
     t("startText"),
     button({
       label: t("createBranch"),
       icon: "plus",
       size: "sm",
-      variant: "primary",
+      variant: "secondary",
       onClick: () => run("create-branch"),
     }),
     name
       ? [
+          text({ text: t("orLocally"), tone: "subtle", size: "xs" }),
           copyField({
             value: name,
             icon: "git-branch",
