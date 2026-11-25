@@ -160,7 +160,8 @@ describe("Create branch", () => {
         id: "base",
         type: "select",
         options: [
-          { id: "main", label: "main" },
+          // The repository's default first, said so.
+          { id: "main", label: "main", hint: "Default" },
           { id: "develop", label: "develop" },
         ],
       }),

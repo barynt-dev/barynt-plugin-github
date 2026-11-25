@@ -77,9 +77,12 @@ async function branchForm(
   repo: string,
 ): Promise<ActionResult> {
   const settings = await branchSettings(api);
-  const [name, { branches }] = await Promise.all([
+  const [name, { base, branches }] = await Promise.all([
     proposedName(api, issueId, settings.pattern),
-    branchesOf(api, repo).catch(() => ({ branches: [] as string[] })),
+    branchesOf(api, repo).catch(() => ({
+      base: null as string | null,
+      branches: [] as string[],
+    })),
   ]);
   return {
     form: {
@@ -94,13 +97,20 @@ async function branchForm(
           value: name,
           required: true,
           mono: true,
+          hint: t("branchNameHint"),
         },
         branches.length > 0
           ? {
               id: "base",
               label: t("baseBranch"),
               type: "select",
-              options: branches.map((b) => ({ id: b, label: b })),
+              mono: true,
+              // The repository's default first, said so.
+              options: branches.map((b) => ({
+                id: b,
+                label: b,
+                ...(b === base && { hint: t("defaultBranch") }),
+              })),
             }
           : {
               id: "base",
