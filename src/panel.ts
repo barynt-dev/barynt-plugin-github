@@ -133,6 +133,48 @@ function pullRequestCard(
 /** Where a person's Branch section remembers being folded away. */
 const FOLD_BRANCH = "fold:branch";
 
+/** Where a person's Pull Requests section remembers being folded away. */
+const FOLD_PR = "fold:pr";
+/** Pull requests shown before "more". */
+const PRS_SHOWN = 2;
+
+/**
+ * What doesn't show at once, behind a quiet button — like the commits'
+ * "Show all" — sorted inside into what's still going on and what's done,
+ * with a button under them that folds them away again.
+ */
+function moreBox(
+  label: string,
+  groups: { title: string; items: HTMLElement[]; dim?: boolean }[],
+): HTMLElement {
+  const filled = groups.filter((g) => g.items.length > 0);
+  const rest = filled.flatMap((g) => {
+    if (g.dim) for (const c of g.items) c.style.opacity = "0.6";
+    if (filled.length < 2) return g.items;
+    const head = text({
+      text: g.title,
+      tone: "subtle",
+      size: "xs",
+      weight: "medium",
+    });
+    return [stack(head, ...g.items)];
+  });
+  const box = stack();
+  const show = (open: boolean): void => {
+    box.replaceChildren(
+      ...(open ? rest : []),
+      button({
+        label: open ? t("showLess") : label,
+        size: "sm",
+        variant: "ghost",
+        onClick: () => show(!open),
+      }),
+    );
+  };
+  show(false);
+  return box;
+}
+
 export async function renderDevelopment(
   api: Api,
   el: HTMLElement,
@@ -192,45 +234,22 @@ export async function renderDevelopment(
   // the ones still being worked on, then the done ones (merged, deleted).
   const hidden = others.length + done.length;
   if (main) branchParts.push(branchRow(main));
-  if (hidden > 0) {
-    const both = others.length > 0 && done.length > 0;
-    const group = (title: string, rows: BranchRow[], dim = false) => {
-      const content = rows.map(branchRow);
-      if (dim) for (const c of content) c.style.opacity = "0.6";
-      if (!both) return content;
-      const head = text({
-        text: title,
-        tone: "subtle",
-        size: "xs",
-        weight: "medium",
-      });
-      return [stack(head, ...content)];
-    };
-    // Like the commits' "Show all": a quiet button that gives way to them,
-    // and one under them that folds them away again.
-    const rest = [
-      ...group(t("activeBranches"), others),
-      ...group(t("finishedBranches"), done, true),
-    ];
-    const box = stack();
-    const show = (open: boolean): void => {
-      box.replaceChildren(
-        ...(open ? rest : []),
-        button({
-          label: open
-            ? t("showLess")
-            : main
-              ? t("moreBranches", { count: hidden })
-              : t("doneBranches", { count: hidden }),
-          size: "sm",
-          variant: "ghost",
-          onClick: () => show(!open),
-        }),
-      );
-    };
-    show(false);
-    branchParts.push(box);
-  }
+  if (hidden > 0)
+    branchParts.push(
+      moreBox(
+        main
+          ? t("moreBranches", { count: hidden })
+          : t("doneBranches", { count: hidden }),
+        [
+          { title: t("activeBranches"), items: others.map(branchRow) },
+          {
+            title: t("finishedBranches"),
+            items: done.map(branchRow),
+            dim: true,
+          },
+        ],
+      ),
+    );
   // "+": another branch — in a window Barynt shows, with the name and the
   // branch it starts from to change (the `create-branch` action). The
   // section folds away under its head.
@@ -298,13 +317,43 @@ export async function renderDevelopment(
   }
 
   // Pull requests and commits show before there are any: "+" opens
-  // GitHub's page to create one (the `create-pull-request` action).
+  // GitHub's page to create one (the `create-pull-request` action). The
+  // open ones first; past the first two, the rest behind "more", sorted
+  // into open and done (merged, closed). The section folds away.
+  const prOpen =
+    (await api.storage.personal.get<boolean>(FOLD_PR).catch(() => null)) !==
+    false;
+  const isActive = (p: { pr: PullRequest }) =>
+    p.pr.state === "open" || p.pr.state === "draft";
+  const activePrs = dev.pullRequests.filter(isActive);
+  const donePrs = dev.pullRequests.filter((p) => !isActive(p));
+  const card = ({ pr, steps }: (typeof dev.pullRequests)[number]) =>
+    pullRequestCard(api, pr, steps);
+  const shown = [...activePrs, ...donePrs].slice(0, PRS_SHOWN);
+  const prParts = shown.map(card);
+  for (const [i, p] of shown.entries())
+    if (!isActive(p)) prParts[i].style.opacity = "0.6";
+  const morePrs = dev.pullRequests.length - shown.length;
+  if (morePrs > 0)
+    prParts.push(
+      moreBox(t("morePullRequests", { count: morePrs }), [
+        {
+          title: t("activePullRequests"),
+          items: activePrs.filter((p) => !shown.includes(p)).map(card),
+        },
+        {
+          title: t("finishedPullRequests"),
+          items: donePrs.filter((p) => !shown.includes(p)).map(card),
+          dim: true,
+        },
+      ]),
+    );
   parts.push(
     sectionHeader({
       size: "sm",
       title: t("pullRequests"),
       icon: "git-pull-request",
-      count: dev.pullRequests.length,
+      count: activePrs.length,
       actions: [
         button({
           label: t("createPullRequest"),
@@ -315,10 +364,15 @@ export async function renderDevelopment(
           onClick: () => run("create-pull-request"),
         }),
       ],
+      fold: {
+        content: prParts,
+        open: prOpen,
+        onToggle: (open) => {
+          void api.storage.personal.set(FOLD_PR, open).catch(() => {});
+        },
+      },
     }),
   );
-  for (const { pr, steps } of dev.pullRequests)
-    parts.push(pullRequestCard(api, pr, steps));
 
   parts.push(
     sectionHeader({
