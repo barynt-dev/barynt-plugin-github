@@ -11,6 +11,7 @@ import {
   row,
   type StepState,
   sectionHeader,
+  skeleton,
   stack,
   stageBar,
   stepList,
@@ -374,6 +375,12 @@ export async function renderDevelopment(
    *  whatever was kept. */
   focus?: string,
 ): Promise<void> {
+  // While GitHub's state loads: a skeleton where it'll be.
+  if (!el.firstChild) {
+    const loading = skeleton({ lines: 3 });
+    loading.style.padding = "0.5rem 0";
+    el.replaceChildren(loading);
+  }
   const data = await api.issueData.list([issueId]);
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
