@@ -70,7 +70,7 @@ describe("how a pull request reads", () => {
 });
 
 describe("the row", () => {
-  it("draws number, state, the branch's checks and their result", () => {
+  it("draws signals, not sentences: number, checks as passed/all, the review", () => {
     const row = pullRequestRow(entries(pr(), checks()));
     expect(row).toMatchObject({
       badge: "pull-request",
@@ -80,33 +80,72 @@ describe("the row", () => {
     });
     expect(row?.parts).toEqual([
       { type: "icon", icon: "git-pull-request", tone: "success" },
-      { type: "text", text: "#42", mono: true, tone: "subtle" },
-      { type: "text", text: "Open", tone: "success", strong: true },
+      { type: "text", text: "#42", size: "xs", mono: true, tone: "subtle" },
+      { type: "icon", icon: "timer", tone: "info" },
+      {
+        type: "text",
+        text: "2/3",
+        size: "xs",
+        mono: true,
+        tone: "info",
+        strong: true,
+      },
+      { type: "icon", icon: "eye", tone: "neutral" },
+      { type: "text", text: "Review", tone: "subtle", size: "xs" },
       { type: "spacer" },
-      { type: "steps", steps: ["success", "success", "running"] },
-      { type: "status", status: "pending" },
     ]);
+    const changes = pullRequestRow(
+      entries(
+        pr({ review: "changes_requested" }),
+        checks({ state: "failure" }),
+      ),
+    );
+    expect(changes?.parts).toContainEqual({
+      type: "text",
+      text: "Changes",
+      tone: "warning",
+      size: "xs",
+      strong: true,
+    });
+    expect(changes?.parts).toContainEqual({
+      type: "icon",
+      icon: "circle-x",
+      tone: "danger",
+    });
   });
 
   it("leaves other branches' checks, and checks once it's merged", () => {
     const other = checks({ branch: "main", state: "failure" });
     expect(pullRequestRow(entries(pr(), other))?.parts).not.toContainEqual(
-      expect.objectContaining({ type: "steps" }),
+      expect.objectContaining({ mono: true, tone: "danger" }),
     );
     const merged = pullRequestRow(entries(pr({ state: "merged" }), checks()));
+    expect(merged?.parts).toContainEqual({
+      type: "text",
+      text: "Merged",
+      tone: "primary",
+      strong: true,
+    });
     expect(merged?.parts).not.toContainEqual(
-      expect.objectContaining({ type: "steps" }),
+      expect.objectContaining({ type: "icon", icon: "timer" }),
     );
   });
 
-  it("counts the other pull requests", () => {
+  it("counts the other pull requests still open — not the done ones", () => {
     const row = pullRequestRow(
       entries(
         pr(),
         pr({ number: 7, state: "merged", at: "2026-11-18T10:00:00Z" }),
+        pr({ number: 8, state: "draft", at: "2026-11-17T10:00:00Z" }),
       ),
     );
-    expect(row?.parts?.at(-1)).toEqual({ type: "chip", text: "+1" });
+    expect(row?.parts?.at(-1)).toMatchObject({
+      type: "group",
+      children: [
+        { type: "icon", icon: "git-pull-request" },
+        { type: "text", text: "+1" },
+      ],
+    });
   });
 
   it("draws nothing without a pull request", () => {

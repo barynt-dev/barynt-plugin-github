@@ -24,7 +24,11 @@ export function prLook(pr: PullRequest): {
   if (pr.state === "closed")
     return { text: t("closed"), tone: "danger", icon: "circle-x" };
   if (pr.state === "draft")
-    return { text: t("draft"), tone: "neutral", icon: "git-pull-request" };
+    return {
+      text: t("draft"),
+      tone: "neutral",
+      icon: "git-pull-request",
+    };
   if (pr.review === "changes_requested")
     return {
       text: t("changesRequested"),
@@ -43,33 +47,69 @@ export function shownPullRequest(prs: PullRequest[]): PullRequest | null {
   return open[0] ?? prs.find((p) => p.state === "merged") ?? prs[0] ?? null;
 }
 
-const STEP: Record<CheckState, StepState> = {
-  success: "success",
-  failure: "danger",
-  pending: "running",
-  neutral: "pending",
-};
-const STATUS = {
-  success: "success",
-  failure: "danger",
-  pending: "pending",
-} as const;
-
-/** At most this many bars; past that the overall result says enough. */
-export const MAX_BARS = 5;
-
-/** The checks of the pull request's branch, as bars and one result. */
+/** The branch's checks as one signal: how many passed of how many, in
+ *  the colour of how they went — nothing to shorten. */
 function checkParts(checks: Checks | undefined): RowPart[] {
   if (!checks || checks.runs.length === 0) return [];
-  const parts: RowPart[] = [
+  const passed = checks.runs.filter((r) => r.state === "success").length;
+  const look =
+    checks.state === "failure"
+      ? { icon: "circle-x" as const, tone: "danger" as const }
+      : checks.state === "pending"
+        ? { icon: "timer" as const, tone: "info" as const }
+        : { icon: "circle-check" as const, tone: "success" as const };
+  return [
+    { type: "icon", icon: look.icon, tone: look.tone },
     {
-      type: "steps",
-      steps: checks.runs.slice(0, MAX_BARS).map((r) => STEP[r.state]),
+      type: "text",
+      text: `${passed}/${checks.runs.length}`,
+      size: "xs",
+      mono: true,
+      tone: look.tone,
+      strong: true,
     },
   ];
-  if (checks.state !== "neutral")
-    parts.push({ type: "status", status: STATUS[checks.state] });
-  return parts;
+}
+
+/** Where its review stands, in a word: changes wanted, approved, or
+ *  waiting — a draft says it's one. */
+function reviewParts(pr: PullRequest): RowPart[] {
+  if (pr.state === "draft")
+    return [
+      {
+        type: "text",
+        text: t("draft"),
+        tone: "neutral",
+        size: "xs",
+        strong: true,
+      },
+    ];
+  if (pr.review === "changes_requested")
+    return [
+      { type: "icon", icon: "pencil", tone: "warning" },
+      {
+        type: "text",
+        text: t("rowChanges"),
+        tone: "warning",
+        size: "xs",
+        strong: true,
+      },
+    ];
+  if (pr.review === "approved")
+    return [
+      { type: "icon", icon: "check", tone: "success" },
+      {
+        type: "text",
+        text: t("rowApproved"),
+        tone: "success",
+        size: "xs",
+        strong: true,
+      },
+    ];
+  return [
+    { type: "icon", icon: "eye", tone: "neutral" },
+    { type: "text", text: t("rowReview"), tone: "subtle", size: "xs" },
+  ];
 }
 
 /** The row for one issue's entries — `null` without a pull request. */
@@ -80,20 +120,63 @@ export function pullRequestRow(
   const pr = shownPullRequest(pullRequests);
   if (!pr) return null;
   const look = prLook(pr);
-  const others = pullRequests.length - 1;
+  const open = pr.state === "open" || pr.state === "draft";
+  // Only the others still open: merged and closed ones are done with.
+  const others = pullRequests.filter(
+    (p) => p !== pr && (p.state === "open" || p.state === "draft"),
+  ).length;
   const ofBranch = checks.find(
     (c) => c.repo === pr.repo && c.branch === pr.branch,
   );
+  // Signals, not sentences: the number, the checks as "0/2", the review
+  // in a word — open; merged or closed, how it ended.
   const parts: RowPart[] = [
     { type: "icon", icon: look.icon, tone: look.tone },
-    { type: "text", text: `#${pr.number}`, mono: true, tone: "subtle" },
-    { type: "text", text: look.text, tone: look.tone, strong: true },
+    {
+      type: "text",
+      text: `#${pr.number}`,
+      size: "xs",
+      mono: true,
+      tone: "subtle",
+    },
+    ...(open
+      ? [...checkParts(ofBranch), ...reviewParts(pr)]
+      : [
+          {
+            type: "text" as const,
+            text: look.text,
+            tone: look.tone,
+            strong: true,
+          },
+        ]),
     { type: "spacer" },
-    ...(pr.state === "open" || pr.state === "draft"
-      ? checkParts(ofBranch)
+    // Other open ones: "+3" beside a pull request's icon — short, so the
+    // review's word keeps its room on a narrow card.
+    ...(others > 0
+      ? [
+          {
+            type: "group" as const,
+            gap: 1 as const,
+            align: "center" as const,
+            padding: 1 as const,
+            radius: "pill" as const,
+            background: "subtle" as const,
+            children: [
+              {
+                type: "icon" as const,
+                icon: "git-pull-request" as const,
+                tone: "neutral" as const,
+              },
+              {
+                type: "text" as const,
+                text: `+${others}`,
+                size: "xs" as const,
+                tone: "subtle" as const,
+              },
+            ],
+          },
+        ]
       : []),
-    // A chip, not text: it keeps its width when the state's text shrinks.
-    ...(others > 0 ? [{ type: "chip" as const, text: `+${others}` }] : []),
   ];
   return {
     badge: "pull-request",

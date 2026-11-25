@@ -70,6 +70,9 @@ const en = {
   changesRequested: "Changes requested",
   approved: "Approved",
   open: "Open",
+  rowChanges: "Changes",
+  rowApproved: "Approved",
+  rowReview: "Review",
 
   // The "Development" panel (BARY-229)
   minutesAgo: "{count} min ago",
@@ -207,6 +210,9 @@ export const t = translator({
     changesRequested: "Änderungen gewünscht",
     approved: "Freigegeben",
     open: "Offen",
+    rowChanges: "Änderungen",
+    rowApproved: "Freigabe",
+    rowReview: "Review",
 
     minutesAgo: "vor {count} Min.",
     hoursAgo: "vor {count} Std.",
