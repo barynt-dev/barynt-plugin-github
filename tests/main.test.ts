@@ -145,6 +145,75 @@ describe("the GitHub plugin", () => {
     expect(noToken.root.textContent).toContain("or keep your own token");
   });
 
+  it("with nothing linked, says where to start", async () => {
+    const panel = (
+      repositories: string[],
+      net: () => unknown,
+    ): { root: HTMLElement; host: ReturnType<typeof createTestHost> } => {
+      const root = document.createElement("div") as unknown as HTMLElement;
+      return {
+        root,
+        host: createTestHost({
+          root,
+          context: {
+            slot: { kind: "issuePanel", id: "development" },
+            issueId: "i-1",
+          },
+          handlers: {
+            "issueData.list": () => ({ "i-1": [] }),
+            "settings.get": () => ({ repositories }),
+            "issues.get": () =>
+              ({
+                id: "i-1",
+                ref: "MOB-2",
+                title: "Add a timer",
+                type: null,
+              }) as never,
+            "net.fetch": net as never,
+          },
+        }),
+      };
+    };
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    const click = (root: HTMLElement, label: string) =>
+      (
+        [...root.querySelectorAll("button")].find((b) =>
+          b.textContent?.includes(label),
+        ) as unknown as { click: () => void }
+      ).click();
+
+    // No repository: the project's settings.
+    const noRepo = panel([], () => ({ status: 200, headers: {}, text: "{}" }));
+    await loadPlugin(GitHub, noRepo.host);
+    await settle();
+    expect(noRepo.root.textContent).toContain("No repository set");
+    click(noRepo.root, "Connect repository");
+    expect(noRepo.host.openedSettings).toEqual(["project"]);
+
+    // No way into GitHub: the person's.
+    const noAccess = panel(["acme/web"], () => {
+      throw new Error("credential_missing");
+    });
+    await loadPlugin(GitHub, noAccess.host);
+    await settle();
+    expect(noAccess.root.textContent).toContain("No access to GitHub");
+    click(noAccess.root, "Connect GitHub");
+    expect(noAccess.host.openedSettings).toEqual(["personal"]);
+
+    // Else: create one — or copy its name.
+    const ready = panel(["acme/web"], () => ({
+      status: 200,
+      headers: {},
+      text: "{}",
+    }));
+    await loadPlugin(GitHub, ready.host);
+    await settle();
+    expect(ready.root.textContent).toContain("Create branch");
+    expect(ready.root.textContent?.toLowerCase()).toContain("mob-2");
+    click(ready.root, "Create branch");
+    expect(ready.host.started).toEqual([{ actionId: "create-branch" }]);
+  });
+
   it("lets Barynt read GitHub's webhooks, with no server of its own", () => {
     const [hook] = manifest.contributes.inboundHooks;
     expect(hook).toMatchObject({

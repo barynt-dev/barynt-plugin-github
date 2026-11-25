@@ -1,4 +1,4 @@
-import type { Plugin } from "@barynt/plugin-sdk";
+import { BaryntError, type Plugin } from "@barynt/plugin-sdk";
 import { branchName, DEFAULT_PATTERN, parseRepositories } from "./branch";
 import { t } from "./i18n";
 
@@ -288,4 +288,15 @@ export async function deleteBranch(
         : t("answered", { status: res.status }),
     );
   await recordBranch(api, issueId, repo, name, true);
+}
+
+/** Whether GitHub lets this person at a repository — through their own
+ *  account or the project's connection. */
+export async function canReach(api: Api, repo: string): Promise<boolean> {
+  try {
+    return (await github(api, `/repos/${repo}`)).status === 200;
+  } catch (error) {
+    if (error instanceof BaryntError) return false;
+    throw error;
+  }
 }

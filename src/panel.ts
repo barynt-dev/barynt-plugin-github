@@ -5,6 +5,7 @@ import {
   card,
   copyField,
   diffStat,
+  emptyState,
   link,
   list,
   notice,
@@ -30,7 +31,7 @@ import {
   withoutIssueKey,
 } from "./development";
 import type { PullRequest } from "./entries";
-import { branchSettings } from "./github";
+import { branchSettings, canReach, proposedName } from "./github";
 import { t } from "./i18n";
 import { prLook } from "./row";
 
@@ -285,6 +286,82 @@ function moreBox(
   return box;
 }
 
+/**
+ * What the panel shows with nothing linked: where to start. Without a
+ * repository, the project's settings; without a way into GitHub, the
+ * person's; else "Create branch" — and the name it would get, to copy
+ * for whoever makes it locally (it shows up here once pushed).
+ */
+async function startHere(
+  api: Api,
+  issueId: string,
+  run: (actionId: string) => void,
+  openSettings: (level: "personal" | "project") => void,
+): Promise<HTMLElement> {
+  const settings = await branchSettings(api).catch(() => null);
+  const repo = settings?.repositories[0];
+  const box = (
+    title: string,
+    body: string,
+    action: HTMLElement,
+    extra: HTMLElement[] = [],
+  ) => {
+    const node = stack(
+      emptyState({ title, text: body, icon: "git-branch", action }),
+      ...extra,
+    );
+    node.style.padding = "0.25rem 0 0.5rem";
+    return node;
+  };
+  if (!settings || !repo)
+    return box(
+      t("noRepoTitle"),
+      t("noRepoText"),
+      button({
+        label: t("connectRepo"),
+        icon: "settings",
+        size: "sm",
+        variant: "secondary",
+        onClick: () => openSettings("project"),
+      }),
+    );
+  if (!(await canReach(api, repo)))
+    return box(
+      t("noAccessTitle"),
+      t("noAccessText"),
+      button({
+        label: t("connectGitHub"),
+        icon: "link",
+        size: "sm",
+        variant: "secondary",
+        onClick: () => openSettings("personal"),
+      }),
+    );
+  const name = await proposedName(api, issueId, settings.pattern).catch(
+    () => null,
+  );
+  return box(
+    t("startTitle"),
+    t("startText"),
+    button({
+      label: t("createBranch"),
+      icon: "plus",
+      size: "sm",
+      variant: "primary",
+      onClick: () => run("create-branch"),
+    }),
+    name
+      ? [
+          copyField({
+            value: name,
+            icon: "git-branch",
+            label: t("copyBranchName"),
+          }),
+        ]
+      : [],
+  );
+}
+
 export async function renderDevelopment(
   api: Api,
   el: HTMLElement,
@@ -292,10 +369,25 @@ export async function renderDevelopment(
   /** Starts one of the plugin's actions for the issue — Barynt shows its
    *  windows and answers (`Plugin.runAction`). */
   run: (actionId: string, choice?: string) => void,
+  /** Opens the plugin's settings in Barynt (`Plugin.openSettings`). */
+  openSettings: (level: "personal" | "project") => void = () => {},
 ): Promise<void> {
   const data = await api.issueData.list([issueId]);
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
+
+  // Nothing linked yet — no branch, pull request or commit: one way to
+  // start instead of three empty sections.
+  if (
+    !dev.branchView.main &&
+    dev.branchView.others.length === 0 &&
+    dev.branchView.done.length === 0 &&
+    dev.pullRequests.length === 0 &&
+    dev.commits.length === 0
+  ) {
+    el.replaceChildren(await startHere(api, issueId, run, openSettings));
+    return;
+  }
 
   const branchParts: HTMLElement[] = [];
   // Folded away or not — each person's own, kept with the plugin.

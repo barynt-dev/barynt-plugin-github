@@ -34,8 +34,13 @@ export default class GitHub extends Plugin {
       id: "development",
       render: async (el, { issueId }) => {
         if (issueId)
-          await renderDevelopment(this.api, el, issueId, (id, choice) =>
-            this.runAction(id, choice === undefined ? {} : { choice }),
+          await renderDevelopment(
+            this.api,
+            el,
+            issueId,
+            (id, choice) =>
+              this.runAction(id, choice === undefined ? {} : { choice }),
+            (level) => this.openSettings(level),
           );
       },
     });
