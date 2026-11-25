@@ -2,6 +2,7 @@ import { Plugin } from "@barynt/plugin-sdk";
 import {
   copyBranchNameAction,
   createBranchAction,
+  createPullRequestAction,
   deleteBranchAction,
   openPullRequestAction,
   renameBranchAction,
@@ -62,7 +63,13 @@ export default class GitHub extends Plugin {
         createBranchAction(this.api, id, choice, values),
       ),
     });
-    // From the panel's rows only (`"where": []`).
+    // From the panel only (`"where": []`).
+    this.registerAction({
+      id: "create-pull-request",
+      run: onIssue((id, choice) =>
+        createPullRequestAction(this.api, id, choice),
+      ),
+    });
     this.registerAction({
       id: "rename-branch",
       run: onIssue((id, choice, values) =>

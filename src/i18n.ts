@@ -18,6 +18,11 @@ const en = {
   pickRepository:
     "Pick a repository under Settings → Plugins → GitHub, tab Project.",
   pickBranchRepo: "Create the branch in which repository?",
+  createPullRequest: "Create pull request",
+  noPullRequests: "No pull request yet.",
+  noCommits: "No commits yet.",
+  pickPullRequestBranch: "A pull request for which branch?",
+  allHavePullRequests: "Every branch of this issue has an open pull request.",
   moreBranches_one: "1 more branch",
   moreBranches_other: "{count} more branches",
   doneBranches_one: "Show done (1)",
@@ -115,6 +120,12 @@ export const t = translator({
     pickRepository:
       "Wähle ein Repository unter Einstellungen → Plugins → GitHub, Tab Projekt.",
     pickBranchRepo: "In welchem Repository soll der Branch entstehen?",
+    createPullRequest: "Pull Request erstellen",
+    noPullRequests: "Noch kein Pull Request.",
+    noCommits: "Noch keine Commits.",
+    pickPullRequestBranch: "Pull Request für welchen Branch?",
+    allHavePullRequests:
+      "Jeder Branch dieses Issues hat schon einen offenen Pull Request.",
     moreBranches_one: "1 weiterer Branch",
     moreBranches_other: "{count} weitere Branches",
     doneBranches_one: "Erledigte anzeigen (1)",

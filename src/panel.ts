@@ -173,6 +173,17 @@ export async function renderDevelopment(
       ...(r.url && !r.deleted && { href: r.url }),
       ...(!r.deleted && {
         menu: [
+          // Without an open one: GitHub's page to create it.
+          ...(r.pr?.state === "open" || r.pr?.state === "draft"
+            ? []
+            : [
+                {
+                  label: t("createPullRequest"),
+                  icon: "git-pull-request" as const,
+                  onClick: () =>
+                    run("create-pull-request", branchChoice(r.repo, r.name)),
+                },
+              ]),
           {
             label: t("renameBranch"),
             icon: "pencil" as const,
@@ -284,28 +295,44 @@ export async function renderDevelopment(
     }
   }
 
-  if (dev.pullRequests.length > 0) {
-    parts.push(
-      sectionHeader({
-        size: "sm",
-        title: t("pullRequests"),
-        icon: "git-pull-request",
+  // Pull requests and commits show before there are any: "+" opens
+  // GitHub's page to create one (the `create-pull-request` action).
+  parts.push(
+    sectionHeader({
+      size: "sm",
+      title: t("pullRequests"),
+      icon: "git-pull-request",
+      ...(dev.pullRequests.length > 0 && {
         meta: String(dev.pullRequests.length),
       }),
-    );
-    for (const { pr, steps } of dev.pullRequests)
-      parts.push(pullRequestCard(api, pr, steps));
-  }
+      actions: [
+        button({
+          label: t("createPullRequest"),
+          icon: "plus",
+          iconOnly: true,
+          size: "sm",
+          variant: "ghost",
+          onClick: () => run("create-pull-request"),
+        }),
+      ],
+    }),
+  );
+  if (dev.pullRequests.length === 0)
+    parts.push(text({ text: t("noPullRequests"), tone: "subtle", size: "sm" }));
+  for (const { pr, steps } of dev.pullRequests)
+    parts.push(pullRequestCard(api, pr, steps));
 
-  if (dev.commits.length > 0) {
-    parts.push(
-      sectionHeader({
-        size: "sm",
-        title: t("commits"),
-        icon: "git-commit-horizontal",
-        meta: String(dev.commits.length),
-      }),
-    );
+  parts.push(
+    sectionHeader({
+      size: "sm",
+      title: t("commits"),
+      icon: "git-commit-horizontal",
+      ...(dev.commits.length > 0 && { meta: String(dev.commits.length) }),
+    }),
+  );
+  if (dev.commits.length === 0)
+    parts.push(text({ text: t("noCommits"), tone: "subtle", size: "sm" }));
+  else {
     const list = stack();
     const show = (count: number): void => {
       list.replaceChildren(

@@ -4,6 +4,7 @@ import {
   type Plugin,
 } from "@barynt/plugin-sdk";
 import { compareUrl } from "./branch";
+import { development } from "./development";
 import { sortEntries } from "./entries";
 import {
   BranchError,
@@ -211,6 +212,51 @@ function branchOfChoice(
   const at = choice?.indexOf(":") ?? -1;
   if (!choice || at < 1) return null;
   return { repo: choice.slice(0, at), name: choice.slice(at + 1) };
+}
+
+/**
+ * GitHub's page to create a pull request for one of the issue's branches,
+ * its title the issue's (BARY-238): the one picked — else the only one
+ * still without an open pull request, or which of several, asked first.
+ */
+export async function createPullRequestAction(
+  api: Api,
+  issueId: string,
+  choice?: string,
+): Promise<ActionResult> {
+  const data = await api.issueData.list([issueId]);
+  const { main, others } = development(data[issueId] ?? []).branchView;
+  const active = [main, ...others].filter((b) => b !== null);
+  const picked = branchOfChoice(choice);
+  const without = active.filter(
+    (b) => b.pr?.state !== "open" && b.pr?.state !== "draft",
+  );
+  const branch = picked
+    ? active.find((b) => b.repo === picked.repo && b.name === picked.name)
+    : without.length === 1
+      ? without[0]
+      : null;
+  if (!branch) {
+    if (active.length === 0)
+      return { message: t("noBranchYet"), tone: "warning" };
+    if (without.length === 0)
+      return { message: t("allHavePullRequests"), tone: "neutral" };
+    return {
+      pick: {
+        title: t("pickPullRequestBranch"),
+        icon: "lucide:git-branch",
+        options: without.map((b) => ({
+          id: branchChoice(b.repo, b.name),
+          label: b.name,
+          hint: b.repo,
+        })),
+      },
+    };
+  }
+  const issue = await api.issues.get(issueId);
+  return {
+    open: compareUrl(branch.repo, branch.name, `${issue.ref}: ${issue.title}`),
+  };
 }
 
 /** Renames one of the issue's branches — its new name in a window. */

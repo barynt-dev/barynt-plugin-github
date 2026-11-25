@@ -21,6 +21,7 @@
           "copy-branch-name": "Branch-Namen kopieren",
           "open-pull-request": "Pull Request öffnen",
           "run-workflow": "Workflow starten",
+          "create-pull-request": "Pull Request erstellen",
           "rename-branch": "Branch umbenennen",
           "delete-branch": "Branch löschen"
         },
@@ -183,6 +184,12 @@
         "title": "Run workflow",
         "icon": "lucide:play",
         "where": ["issueMenu", "commandPalette"]
+      },
+      {
+        "id": "create-pull-request",
+        "title": "Create pull request",
+        "icon": "lucide:git-pull-request",
+        "where": []
       },
       {
         "id": "rename-branch",

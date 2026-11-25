@@ -420,3 +420,48 @@ describe("Rename and delete a branch", () => {
     expect(kept?.params).toMatchObject({ value: { deleted: true } });
   });
 });
+
+describe("Create pull request (BARY-238)", () => {
+  const branch = (name: string, h: number) => ({
+    kind: "branch",
+    repo: "acme/web",
+    name,
+    url: null,
+    deleted: false,
+    at: `2026-11-19T${String(h).padStart(2, "0")}:00:00Z`,
+  });
+
+  it("opens GitHub's page to create one for the issue's only branch", async () => {
+    const h = host({ entries: [branch("nim-42-keep", 9)] });
+    await loadPlugin(GitHub, h);
+    const result = await h.runAction("create-pull-request", { issueId: "i-1" });
+    expect(result.open).toBe(
+      "https://github.com/acme/web/compare/nim-42-keep?expand=1&title=NIM-42%3A%20Keep%20the%20cookie",
+    );
+  });
+
+  it("asks which branch with several, then opens it for that one", async () => {
+    const h = host({
+      entries: [branch("nim-42-a", 9), branch("nim-42-b", 10)],
+    });
+    await loadPlugin(GitHub, h);
+    const asked = await h.runAction("create-pull-request", { issueId: "i-1" });
+    expect(asked.pick?.options.map((o) => o.label)).toEqual([
+      "nim-42-b",
+      "nim-42-a",
+    ]);
+    const done = await h.runAction("create-pull-request", {
+      issueId: "i-1",
+      choice: "acme/web:nim-42-a",
+    });
+    expect(done.open).toContain("/compare/nim-42-a?");
+  });
+
+  it("says so without a branch", async () => {
+    const h = host({});
+    await loadPlugin(GitHub, h);
+    expect(
+      (await h.runAction("create-pull-request", { issueId: "i-1" })).tone,
+    ).toBe("warning");
+  });
+});
