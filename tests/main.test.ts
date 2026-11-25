@@ -108,7 +108,9 @@ describe("the GitHub plugin", () => {
     await settle();
     expect(withToken.root.textContent).toContain("acme/web#42");
     expect(withToken.root.textContent).toContain("tom");
-    expect(withToken.host.calls.at(-1)).toMatchObject({
+    expect(
+      withToken.host.calls.find((c) => c.method === "net.fetch"),
+    ).toMatchObject({
       method: "net.fetch",
       params: {
         url: "https://api.github.com/repos/acme/web/pulls/42/reviews?per_page=100",

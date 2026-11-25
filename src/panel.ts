@@ -135,6 +135,8 @@ const FOLD_BRANCH = "fold:branch";
 
 /** Where a person's Pull Requests section remembers being folded away. */
 const FOLD_PR = "fold:pr";
+/** Where a person's Commits section remembers being folded away. */
+const FOLD_COMMITS = "fold:commits";
 /** Pull requests shown before "more". */
 const PRS_SHOWN = 2;
 
@@ -374,30 +376,32 @@ export async function renderDevelopment(
     }),
   );
 
-  parts.push(
-    sectionHeader({
-      size: "sm",
-      title: t("commits"),
-      icon: "git-commit-horizontal",
-      count: dev.commits.length,
-    }),
-  );
+  // One line each — its first, the rest cut off — that opens the commit
+  // on GitHub. The section folds away like the others.
+  const commitsOpen =
+    (await api.storage.personal
+      .get<boolean>(FOLD_COMMITS)
+      .catch(() => null)) !== false;
+  const commitParts: HTMLElement[] = [];
   if (dev.commits.length > 0) {
-    const list = stack();
+    const box = stack();
     const show = (count: number): void => {
-      list.replaceChildren(
-        ...dev.commits.slice(0, count).map((c) =>
-          row(
-            text({
-              text: c.sha,
-              mono: true,
-              size: "xs",
-              tone: "primary",
-              inline: true,
-            }),
-            text({ text: c.message, size: "sm", inline: true }),
-          ),
-        ),
+      box.replaceChildren(
+        list({
+          items: dev.commits.slice(0, count).map((c) => ({
+            title: c.message.split("\n")[0] ?? c.message,
+            ...(c.url && { href: c.url }),
+            lead: [
+              text({
+                text: c.sha,
+                mono: true,
+                size: "xs",
+                tone: "primary",
+                inline: true,
+              }),
+            ],
+          })),
+        }),
         ...(count < dev.commits.length
           ? [
               button({
@@ -420,8 +424,23 @@ export async function renderDevelopment(
       );
     };
     show(COMMITS_SHOWN);
-    parts.push(list);
+    commitParts.push(box);
   }
+  parts.push(
+    sectionHeader({
+      size: "sm",
+      title: t("commits"),
+      icon: "git-commit-horizontal",
+      count: dev.commits.length,
+      fold: {
+        content: commitParts,
+        open: commitsOpen,
+        onToggle: (open) => {
+          void api.storage.personal.set(FOLD_COMMITS, open).catch(() => {});
+        },
+      },
+    }),
+  );
 
   if (dev.deployments.length > 0) {
     parts.push(
