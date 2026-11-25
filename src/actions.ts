@@ -51,45 +51,69 @@ async function knownBranch(api: Api, issueId: string) {
   };
 }
 
-/** With several repositories, which one the branch goes to — the first is
- *  where branches go by default. */
-export async function branchRepoPick(api: Api): Promise<ActionResult | null> {
-  const { repositories } = await branchSettings(api);
-  if (repositories.length < 2) return null;
-  return {
-    pick: {
-      title: t("pickBranchRepo"),
-      icon: "lucide:git-branch",
-      options: repositories.map((repo, i) => ({
-        id: repo,
-        label: repo,
-        ...(i === 0 && { hint: t("defaultRepo") }),
-      })),
-    },
-  };
-}
+/** What Git doesn't take in a branch's name — checked as it's typed. */
+const BRANCH_RULES = [
+  { pattern: "\\s", message: "branchNoSpaces" },
+  { pattern: "[~^:?*\\[\\\\\\x00-\\x1f\\x7f]", message: "branchNoChars" },
+  { pattern: "\\.\\.|@\\{|//", message: "branchNoSequence" },
+  { pattern: "^/|/$|\\.$|\\.lock$", message: "branchNoEdge" },
+  { pattern: "^.{251,}$", message: "branchTooLong" },
+] as const;
 
-/** The window to create a branch in: the branch it starts from and its
- *  name, proposed after the project's pattern — both to change. */
+/**
+ * The window to create a branch in: the repository (a choice with several,
+ * the default marked), the name the issue gives — checked as it's typed,
+ * against Git's rules and the repository's branches — and where it starts,
+ * the repository's default first. Branches and what's taken follow the
+ * repository picked.
+ */
 async function branchForm(
   api: Api,
   issueId: string,
-  repo: string,
+  repo: string | undefined,
 ): Promise<ActionResult> {
   const settings = await branchSettings(api);
-  const [name, { base, branches }] = await Promise.all([
+  const repos = settings.repositories;
+  const first = repo && repos.includes(repo) ? repo : repos[0];
+  if (!first) return { message: t("pickRepository"), tone: "warning" };
+  const [name, ...lists] = await Promise.all([
     proposedName(api, issueId, settings.pattern),
-    branchesOf(api, repo).catch(() => ({
-      base: null as string | null,
-      branches: [] as string[],
-    })),
+    ...repos.map((r) =>
+      branchesOf(api, r).catch(() => ({
+        base: null as string | null,
+        branches: [] as string[],
+      })),
+    ),
   ]);
+  const per = (pick: (i: number) => object) =>
+    Object.fromEntries(repos.map((r, i) => [r, pick(i)]));
+  const baseOptions = (i: number) => {
+    const { base, branches } = lists[i];
+    // GitHub didn't list them: its default, whatever it's called.
+    if (branches.length === 0) return [{ id: "", label: t("repoDefault") }];
+    return branches.map((b) => ({
+      id: b,
+      label: b,
+      ...(b === base && { hint: t("defaultBranch") }),
+    }));
+  };
   return {
     form: {
       title: t("createBranchTitle"),
-      description: t("createBranchIn", { repo }),
       submitLabel: t("createBranch"),
       fields: [
+        {
+          id: "repo",
+          label: t("repository"),
+          type: "select",
+          mono: true,
+          value: first,
+          options: repos.map((r, i) => ({
+            id: r,
+            label: r,
+            ...(i === 0 && repos.length > 1 && { hint: t("defaultBranch") }),
+          })),
+        },
         {
           id: "name",
           label: t("branchNameLabel"),
@@ -98,27 +122,23 @@ async function branchForm(
           required: true,
           mono: true,
           hint: t("branchNameHint"),
+          invalid: BRANCH_RULES.map((r) => ({
+            pattern: r.pattern,
+            message: t(r.message),
+          })),
+          taken: { values: [], message: t("branchTaken") },
+          dependsOn: "repo",
+          per: per((i) => ({ taken: lists[i].branches })),
         },
-        branches.length > 0
-          ? {
-              id: "base",
-              label: t("baseBranch"),
-              type: "select",
-              mono: true,
-              // The repository's default first, said so.
-              options: branches.map((b) => ({
-                id: b,
-                label: b,
-                ...(b === base && { hint: t("defaultBranch") }),
-              })),
-            }
-          : {
-              id: "base",
-              label: t("baseBranch"),
-              type: "text",
-              hint: t("baseBranchHint"),
-              mono: true,
-            },
+        {
+          id: "base",
+          label: t("baseBranch"),
+          type: "select",
+          mono: true,
+          options: baseOptions(repos.indexOf(first)),
+          dependsOn: "repo",
+          per: per((i) => ({ options: baseOptions(i) })),
+        },
       ],
     },
   };
@@ -131,21 +151,17 @@ export async function createBranchAction(
   values?: Record<string, string>,
 ): Promise<ActionResult> {
   try {
-    // Several repositories: which one, first.
-    if (!choice) {
-      const pick = await branchRepoPick(api);
-      if (pick) return pick;
-    }
-    // Then its name and where it starts, in a window.
-    if (!values) {
-      const repo = choice ?? (await branchSettings(api)).repositories[0];
-      if (!repo) return { message: t("pickRepository"), tone: "warning" };
-      return await branchForm(api, issueId, repo);
-    }
-    const { repo, name } = await createBranch(api, issueId, choice, {
-      name: values.name,
-      base: values.base,
-    });
+    // Where, what and from where, in one window.
+    if (!values) return await branchForm(api, issueId, choice);
+    const { repo, name } = await createBranch(
+      api,
+      issueId,
+      values.repo || choice,
+      {
+        name: values.name,
+        base: values.base,
+      },
+    );
     return {
       message: t("branchCreated", { name, repo }),
       tone: "success",

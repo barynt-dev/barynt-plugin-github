@@ -68,7 +68,7 @@ function fakeGitHub(taken: string[] = [], log: Net[] = []) {
 }
 
 describe("Create branch", () => {
-  it("asks which repository with several, then creates it in the one picked", async () => {
+  it("offers the repositories in its window, then creates it in the one picked", async () => {
     const log: Net[] = [];
     const h = host({
       settings: { repositories: ["acme/api", "acme/web"] },
@@ -76,19 +76,18 @@ describe("Create branch", () => {
     });
     await loadPlugin(GitHub, h);
     const asked = await h.runAction("create-branch", { issueId: "i-1" });
-    expect(asked).toMatchObject({
-      pick: {
-        options: [
-          { id: "acme/api", label: "acme/api" },
-          { id: "acme/web", label: "acme/web" },
-        ],
-      },
+    expect(asked.form?.fields[0]).toMatchObject({
+      id: "repo",
+      type: "select",
+      value: "acme/api",
+      options: [
+        { id: "acme/api", label: "acme/api", hint: "Default" },
+        { id: "acme/web", label: "acme/web" },
+      ],
     });
-    expect(log).toHaveLength(0);
     const done = await h.runAction("create-branch", {
       issueId: "i-1",
-      choice: "acme/web",
-      values: {},
+      values: { repo: "acme/web" },
     });
     expect(done).toMatchObject({ tone: "success" });
     expect(log.some((r) => r.url.endsWith("/repos/acme/web/git/refs"))).toBe(
@@ -151,21 +150,36 @@ describe("Create branch", () => {
     });
     await loadPlugin(GitHub, h);
     const asked = await h.runAction("create-branch", { issueId: "i-1" });
-    expect(asked.form?.fields).toEqual([
-      expect.objectContaining({
-        id: "name",
-        value: "ada/nim-42-keep-the-cookie",
-      }),
-      expect.objectContaining({
-        id: "base",
-        type: "select",
-        options: [
-          // The repository's default first, said so.
-          { id: "main", label: "main", hint: "Default" },
-          { id: "develop", label: "develop" },
-        ],
-      }),
-    ]);
+    const [repo, name, base] = asked.form?.fields ?? [];
+    // One repository: no choice, shown as it is.
+    expect(repo).toMatchObject({ id: "repo", options: [{ id: "acme/web" }] });
+    // Checked as it's typed: Git's rules, and the repository's branches.
+    expect(name).toMatchObject({
+      id: "name",
+      value: "ada/nim-42-keep-the-cookie",
+      dependsOn: "repo",
+      per: { "acme/web": { taken: ["main", "develop"] } },
+    });
+    const wrong = (value: string) =>
+      (name?.invalid ?? []).some((r) => new RegExp(r.pattern, "u").test(value));
+    expect(wrong("ada/nim-42 keep")).toBe(true);
+    expect(wrong("a..b")).toBe(true);
+    expect(wrong("feature/x.lock")).toBe(true);
+    expect(wrong("a[b")).toBe(true);
+    expect(wrong("ada/nim-42-keep-the-cookie")).toBe(false);
+    expect(base).toMatchObject({
+      id: "base",
+      type: "select",
+      per: {
+        "acme/web": {
+          options: [
+            // The repository's default first, said so.
+            { id: "main", label: "main", hint: "Default" },
+            { id: "develop", label: "develop" },
+          ],
+        },
+      },
+    });
   });
 
   it("creates it under the name set, from the branch picked, and keeps it on the issue", async () => {

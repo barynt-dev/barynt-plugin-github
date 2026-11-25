@@ -17,7 +17,6 @@ const en = {
   // Creating a branch
   pickRepository:
     "Pick a repository under Settings → Plugins → GitHub, tab Project.",
-  pickBranchRepo: "Create the branch in which repository?",
   createPullRequest: "Create pull request",
   pickPullRequestBranch: "A pull request for which branch?",
   allHavePullRequests: "Every branch of this issue has an open pull request.",
@@ -28,9 +27,16 @@ const en = {
   doneBranches_one: "Show done (1)",
   doneBranches_other: "Show done ({count})",
   createBranchTitle: "Create branch",
-  createBranchIn: "In {repo}, named after the issue.",
   branchNameHint: "Change it as you like — no spaces.",
   defaultBranch: "Default",
+  repository: "Repository",
+  repoDefault: "Its default branch",
+  branchTaken: "There's a branch of that name in this repository already.",
+  branchNoSpaces: "No spaces — use - instead.",
+  branchNoChars: "Git doesn't take ~ ^ : ? * [ or \\ in a name.",
+  branchNoSequence: "Git doesn't take .. // or @{ in a name.",
+  branchNoEdge: "It can't start with / or end with / . or .lock.",
+  branchTooLong: "That's too long for a branch name.",
   branchNameLabel: "Branch name",
   baseBranch: "From branch",
   baseBranchHint: "Empty: the repository's default branch.",
@@ -48,7 +54,6 @@ const en = {
   deleteBranchText:
     "{name} is deleted in {repo}. An open pull request from it is closed.",
   branchDeleted: "Branch {name} deleted.",
-  defaultRepo: "Where branches go by default",
   repoNotShown:
     "GitHub doesn't show {repo} — share it with the app, or keep a token that sees it.",
   tokenRefused: "GitHub doesn't accept the token any more.",
@@ -146,7 +151,6 @@ export const t = translator({
 
     pickRepository:
       "Wähle ein Repository unter Einstellungen → Plugins → GitHub, Tab Projekt.",
-    pickBranchRepo: "In welchem Repository soll der Branch entstehen?",
     createPullRequest: "Pull Request erstellen",
     pickPullRequestBranch: "Pull Request für welchen Branch?",
     allHavePullRequests:
@@ -158,9 +162,18 @@ export const t = translator({
     doneBranches_one: "Erledigte anzeigen (1)",
     doneBranches_other: "Erledigte anzeigen ({count})",
     createBranchTitle: "Branch erstellen",
-    createBranchIn: "In {repo}, benannt nach dem Issue.",
     branchNameHint: "Ändere ihn nach Belieben – ohne Leerzeichen.",
     defaultBranch: "Standard",
+    repository: "Repository",
+    repoDefault: "Sein Standard-Branch",
+    branchTaken:
+      "Einen Branch mit dem Namen gibt es in diesem Repository schon.",
+    branchNoSpaces: "Keine Leerzeichen – nimm - stattdessen.",
+    branchNoChars: "Git nimmt kein ~ ^ : ? * [ oder \\ im Namen.",
+    branchNoSequence: "Git nimmt kein .. // oder @{ im Namen.",
+    branchNoEdge:
+      "Darf nicht mit / beginnen und nicht auf / . oder .lock enden.",
+    branchTooLong: "Der Name ist zu lang für einen Branch.",
     branchNameLabel: "Branch-Name",
     baseBranch: "Ausgehend von",
     baseBranchHint: "Leer: der Standard-Branch des Repositorys.",
@@ -178,7 +191,6 @@ export const t = translator({
     deleteBranchText:
       "{name} wird in {repo} gelöscht. Ein offener Pull Request davon wird geschlossen.",
     branchDeleted: "Branch {name} gelöscht.",
-    defaultRepo: "Standard für neue Branches",
     repoNotShown:
       "GitHub zeigt {repo} nicht – gib es für die App frei oder hinterlege ein Token, das es sieht.",
     tokenRefused: "GitHub akzeptiert das Token nicht mehr.",
