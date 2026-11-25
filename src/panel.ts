@@ -9,7 +9,6 @@ import {
   notice,
   row,
   sectionHeader,
-  showMore,
   stack,
   stepList,
   text,
@@ -207,17 +206,20 @@ export async function renderDevelopment(
       });
       return [stack(head, ...content)];
     };
-    branchParts.push(
-      showMore({
-        label: main
-          ? t("moreBranches", { count: hidden })
-          : t("doneBranches", { count: hidden }),
-        content: [
-          ...group(t("activeBranches"), others),
-          ...group(t("finishedBranches"), done, true),
-        ],
-      }),
-    );
+    // Like the commits' "Show all": a quiet button that gives way to them.
+    const rest = [
+      ...group(t("activeBranches"), others),
+      ...group(t("finishedBranches"), done, true),
+    ];
+    const more: HTMLElement = button({
+      label: main
+        ? t("moreBranches", { count: hidden })
+        : t("doneBranches", { count: hidden }),
+      size: "sm",
+      variant: "ghost",
+      onClick: () => more.replaceWith(...rest),
+    });
+    branchParts.push(more);
   }
   // "+": another branch — in a window Barynt shows, with the name and the
   // branch it starts from to change (the `create-branch` action). The
