@@ -15,16 +15,18 @@ import {
   stageBar,
   stepList,
   text,
-  user,
+  userNote,
 } from "@barynt/plugin-sdk/ui";
 import { branchChoice, runWorkflowAction } from "./actions";
 import {
   type BranchRow,
   COMMITS_SHOWN,
   development,
+  lastComment,
   latestReviews,
   type NextStep,
   prProgress,
+  reviewer,
   withoutIssueKey,
 } from "./development";
 import type { PullRequest } from "./entries";
@@ -61,16 +63,39 @@ async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
         size: "sm",
       });
     const latest = latestReviews(res.json());
-    if (latest.length === 0)
+    // The newest comment, under the one who wrote it (a click shows all of
+    // it) — someone who only commented gets a line of their own. The rest
+    // are on GitHub.
+    const said = lastComment(res.json());
+    if (latest.length === 0 && !said)
       return text({ text: t("noReviews"), tone: "subtle", size: "sm" });
-    return stack(
-      ...latest.map((r) =>
-        user({
-          name: r.login,
-          meta: r.state === "approved" ? t("approved") : t("changesRequested"),
+    const note = (login: string, state: string | null) => {
+      const who = reviewer(login);
+      return userNote({
+        name: who.name,
+        ...(who.bot && { tag: t("bot") }),
+        ...(state === "approved" && {
+          status: { text: t("approved"), tone: "success" as const },
         }),
-      ),
-    );
+        ...(state === "changes_requested" && {
+          status: { text: t("changesRequested"), tone: "warning" as const },
+        }),
+        ...(said?.login === login && { text: said.text }),
+      });
+    };
+    const notes = latest.map((r) => note(r.login, r.state));
+    if (said && !latest.some((r) => r.login === said.login))
+      notes.push(note(said.login, null));
+    const more =
+      said && pr.url && said.count > 1
+        ? [
+            link({
+              text: t("moreComments", { count: said.count }),
+              href: pr.url,
+            }),
+          ]
+        : [];
+    return stack(...notes, ...more);
   } catch (error) {
     if (error instanceof BaryntError && error.code === "credential_missing")
       return notice({

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
   development,
+  lastComment,
   latestReviews,
   prProgress,
+  reviewer,
   withoutIssueKey,
 } from "../src/development";
 import type { PullRequest } from "../src/entries";
@@ -97,6 +99,36 @@ describe("latestReviews()", () => {
         { user: { login: "eve" }, state: "DISMISSED" },
       ]),
     ).toEqual([{ login: "tom", state: "approved" }]);
+  });
+
+  it("finds the newest comment, and how many there are", () => {
+    expect(
+      lastComment([
+        {
+          user: { login: "tom" },
+          state: "CHANGES_REQUESTED",
+          body: "Fix the test",
+        },
+        { user: { login: "ada" }, state: "COMMENTED", body: "  And the docs " },
+        { user: { login: "tom" }, state: "APPROVED", body: "" },
+        { user: { login: "eve" }, state: "DISMISSED", body: "Never mind" },
+      ]),
+    ).toEqual({ login: "ada", text: "And the docs", count: 2 });
+    expect(
+      lastComment([{ user: { login: "tom" }, state: "APPROVED" }]),
+    ).toBeNull();
+  });
+
+  it("names bots short — Barynt's app as Barynt-App", () => {
+    expect(reviewer("barynt-opposite-fancy-hotel-infect[bot]")).toEqual({
+      name: "Barynt-App",
+      bot: true,
+    });
+    expect(reviewer("dependabot[bot]")).toEqual({
+      name: "dependabot",
+      bot: true,
+    });
+    expect(reviewer("ada")).toEqual({ name: "ada", bot: false });
   });
 });
 

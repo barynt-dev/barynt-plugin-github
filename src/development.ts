@@ -126,6 +126,35 @@ export function latestReviews(
   return [...byUser].map(([login, state]) => ({ login, state }));
 }
 
+/** The newest thing written in a pull request's reviews — who and what —
+ *  and how many there are in all (GitHub lists them oldest first). */
+export function lastComment(
+  reviews: {
+    user?: { login?: string } | null;
+    state?: string;
+    body?: string | null;
+  }[],
+): { login: string; text: string; count: number } | null {
+  const said = reviews.flatMap((r) => {
+    const text = r.body?.trim();
+    const login = r.user?.login;
+    return text && login && r.state?.toLowerCase() !== "dismissed"
+      ? [{ login, text }]
+      : [];
+  });
+  const last = said.at(-1);
+  return last ? { ...last, count: said.length } : null;
+}
+
+/** How a GitHub account reads in the panel: a bot without "[bot]" but
+ *  with a tag — Barynt's own GitHub App as "Barynt-App". */
+export function reviewer(login: string): { name: string; bot: boolean } {
+  const bot = login.endsWith("[bot]");
+  if (!bot) return { name: login, bot };
+  const name = login.slice(0, -"[bot]".length);
+  return { name: /^barynt([-_]|$)/i.test(name) ? "Barynt-App" : name, bot };
+}
+
 /** A station on a pull request's way to merging. */
 export type Stage = "ready" | "checks" | "review" | "merge";
 

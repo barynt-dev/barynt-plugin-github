@@ -102,6 +102,9 @@ const en = {
   details: "Details",
   checksTitle: "Checks",
   reviewsTitle: "Reviews",
+  bot: "Bot",
+  moreComments_one: "1 comment on GitHub",
+  moreComments_other: "All {count} comments on GitHub",
 
   // GitHub Actions (BARY-238)
   pickWorkflow:
@@ -220,6 +223,9 @@ export const t = translator({
     details: "Details",
     checksTitle: "Checks",
     reviewsTitle: "Reviews",
+    bot: "Bot",
+    moreComments_one: "1 Kommentar auf GitHub",
+    moreComments_other: "Alle {count} Kommentare auf GitHub",
 
     pickWorkflow:
       "Trage zuerst einen Workflow in den Projekteinstellungen → Plugins → GitHub ein.",
