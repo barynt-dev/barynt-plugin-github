@@ -131,6 +131,9 @@ function pullRequestCard(
 }
 
 /** Draws the panel for an issue into `el`. */
+/** Whether the Branch section is open — kept while the panel is. */
+let branchOpen = true;
+
 /** A branch's line under its name: its pull request, its checks — or
  *  that it's gone. */
 function branchStatus(r: BranchRow): string | null {
@@ -154,25 +157,7 @@ export async function renderDevelopment(
   const dev = development(data[issueId] ?? []);
   const parts: HTMLElement[] = [];
 
-  // "+": another branch — in a window Barynt shows, with the name and the
-  // branch it starts from to change (the `create-branch` action).
-  parts.push(
-    sectionHeader({
-      title: t("branch"),
-      icon: "git-branch",
-      size: "sm",
-      actions: [
-        button({
-          label: t("createBranch"),
-          icon: "plus",
-          iconOnly: true,
-          size: "sm",
-          variant: "ghost",
-          onClick: () => run("create-branch"),
-        }),
-      ],
-    }),
-  );
+  const branchParts: HTMLElement[] = [];
   // The branch that matters most on top; the others still being worked on
   // folded below it, the done ones (deleted, merged) apart.
   const { main, others, done } = dev.branchView;
@@ -213,7 +198,7 @@ export async function renderDevelopment(
     return showMore({ label: title, content });
   };
   if (!main)
-    parts.push(
+    branchParts.push(
       text({ text: t("noBranchNames"), tone: "subtle", size: "sm" }),
       button({
         label: t("createBranch"),
@@ -223,11 +208,41 @@ export async function renderDevelopment(
         onClick: () => run("create-branch"),
       }),
     );
-  else parts.push(branchRow(main));
+  else branchParts.push(branchRow(main));
   if (others.length > 0)
-    parts.push(fold(t("moreBranches", { count: others.length }), others));
+    branchParts.push(fold(t("moreBranches", { count: others.length }), others));
   if (done.length > 0)
-    parts.push(fold(t("doneBranches", { count: done.length }), done, true));
+    branchParts.push(
+      fold(t("doneBranches", { count: done.length }), done, true),
+    );
+  // "+": another branch — in a window Barynt shows, with the name and the
+  // branch it starts from to change (the `create-branch` action). The
+  // section folds away under its head.
+  parts.push(
+    sectionHeader({
+      title: t("branch"),
+      icon: "git-branch",
+      size: "sm",
+      actions: [
+        button({
+          label: t("createBranch"),
+          icon: "plus",
+          iconOnly: true,
+          size: "sm",
+          variant: "ghost",
+          onClick: () => run("create-branch"),
+        }),
+      ],
+      fold: {
+        content: branchParts,
+        open: branchOpen,
+        onToggle: (open) => {
+          branchOpen = open;
+        },
+      },
+    }),
+  );
+
   // The project's workflow, on the issue's branch (GitHub Actions).
   if (dev.branches.length > 0) {
     const { workflow } = await branchSettings(api).catch(() => ({
