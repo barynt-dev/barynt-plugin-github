@@ -15,7 +15,12 @@ import {
   user,
 } from "@barynt/plugin-sdk/ui";
 import { branchChoice, runWorkflowAction } from "./actions";
-import { COMMITS_SHOWN, development, latestReviews } from "./development";
+import {
+  type BranchRow,
+  COMMITS_SHOWN,
+  development,
+  latestReviews,
+} from "./development";
 import type { PullRequest } from "./entries";
 import { branchSettings } from "./github";
 import { t } from "./i18n";
@@ -125,6 +130,17 @@ function pullRequestCard(
 }
 
 /** Draws the panel for an issue into `el`. */
+/** A branch's line under its name: its pull request, its checks — or
+ *  that it's gone. */
+function branchStatus(r: BranchRow): string | null {
+  const parts: string[] = [];
+  if (r.deleted) parts.push(t("branchGone"));
+  if (r.pr) parts.push(`PR #${r.pr.number} · ${prLook(r.pr).text}`);
+  if (r.checks && r.checks !== "neutral" && !r.deleted)
+    parts.push(t(`checks_${r.checks}`));
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export async function renderDevelopment(
   api: Api,
   el: HTMLElement,
@@ -156,7 +172,50 @@ export async function renderDevelopment(
       ],
     }),
   );
-  if (dev.branches.length === 0)
+  // The branch that matters most on top; the others still being worked on
+  // folded below it, the done ones (deleted, merged) apart.
+  const { main, others, done } = dev.branchView;
+  const branchRow = (r: BranchRow): HTMLElement => {
+    const field = copyField({
+      value: r.name,
+      icon: "git-branch",
+      label: t("copyBranchName"),
+      ...(r.url && !r.deleted && { href: r.url }),
+      ...(!r.deleted && {
+        menu: [
+          {
+            label: t("renameBranch"),
+            icon: "pencil" as const,
+            onClick: () => run("rename-branch", branchChoice(r.repo, r.name)),
+          },
+          {
+            label: t("deleteBranch"),
+            icon: "trash" as const,
+            danger: true,
+            onClick: () => run("delete-branch", branchChoice(r.repo, r.name)),
+          },
+        ],
+      }),
+    });
+    const status = branchStatus(r);
+    if (!status) return field;
+    const line = text({ text: status, tone: "subtle", size: "xs" });
+    // Under the name, past its icon.
+    line.style.paddingLeft = "2.25rem";
+    const box = stack(field, line);
+    box.style.gap = "0.25rem";
+    return box;
+  };
+  const fold = (title: string, rows: BranchRow[], dim = false) => {
+    const content = rows.map(branchRow);
+    if (dim) for (const c of content) c.style.opacity = "0.6";
+    return sectionHeader({
+      title,
+      size: "sm",
+      fold: { content, open: false },
+    });
+  };
+  if (!main)
     parts.push(
       text({ text: t("noBranchNames"), tone: "subtle", size: "sm" }),
       button({
@@ -167,30 +226,11 @@ export async function renderDevelopment(
         onClick: () => run("create-branch"),
       }),
     );
-  // Each branch: a click copies it, a button opens it, and "…" holds
-  // renaming and deleting.
-  for (const b of dev.branches)
-    parts.push(
-      copyField({
-        value: b.name,
-        icon: "git-branch",
-        label: t("copyBranchName"),
-        ...(b.url && { href: b.url }),
-        menu: [
-          {
-            label: t("renameBranch"),
-            icon: "pencil",
-            onClick: () => run("rename-branch", branchChoice(b.repo, b.name)),
-          },
-          {
-            label: t("deleteBranch"),
-            icon: "trash",
-            danger: true,
-            onClick: () => run("delete-branch", branchChoice(b.repo, b.name)),
-          },
-        ],
-      }),
-    );
+  else parts.push(branchRow(main));
+  if (others.length > 0)
+    parts.push(fold(t("moreBranches", { count: others.length }), others));
+  if (done.length > 0)
+    parts.push(fold(t("doneBranches", { count: done.length }), done, true));
   // The project's workflow, on the issue's branch (GitHub Actions).
   if (dev.branches.length > 0) {
     const { workflow } = await branchSettings(api).catch(() => ({

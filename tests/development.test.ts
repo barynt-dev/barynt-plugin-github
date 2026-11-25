@@ -120,3 +120,57 @@ describe("deployments (BARY-238)", () => {
     ]);
   });
 });
+
+describe("several branches (BARY-238)", () => {
+  const branch = (name: string, h: number, deleted = false) =>
+    entry({
+      kind: "branch",
+      repo: "acme/web",
+      name,
+      url: null,
+      deleted,
+      at: at(h),
+    });
+  const pr = (branchName: string, state: string, h: number) =>
+    entry({
+      kind: "pull_request",
+      repo: "acme/web",
+      number: h,
+      title: "x",
+      state,
+      review: null,
+      url: null,
+      branch: branchName,
+      base: "main",
+      author: null,
+      additions: null,
+      deletions: null,
+      at: at(h),
+    });
+
+  it("puts the one with an open pull request on top, before a newer one", () => {
+    const { branchView } = development([
+      branch("web-42-spike", 12),
+      branch("web-42-fix", 10),
+      pr("web-42-fix", "open", 11),
+    ]);
+    expect(branchView.main?.name).toBe("web-42-fix");
+    expect(branchView.main?.pr?.number).toBe(11);
+    expect(branchView.others.map((b) => b.name)).toEqual(["web-42-spike"]);
+  });
+
+  it("without one, the newest; deleted and merged ones are done", () => {
+    const { branchView } = development([
+      branch("web-42-new", 12),
+      branch("web-42-merged", 11),
+      pr("web-42-merged", "merged", 11),
+      branch("web-42-gone", 9, true),
+    ]);
+    expect(branchView.main?.name).toBe("web-42-new");
+    expect(branchView.others).toEqual([]);
+    expect(branchView.done.map((b) => b.name)).toEqual([
+      "web-42-merged",
+      "web-42-gone",
+    ]);
+  });
+});

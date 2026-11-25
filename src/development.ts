@@ -15,9 +15,29 @@ const STEP: Record<CheckState, StepState> = {
   neutral: "pending",
 };
 
+/** A branch as the panel shows it, with its pull request and checks. */
+export interface BranchRow {
+  name: string;
+  url: string | null;
+  repo: string;
+  deleted: boolean;
+  /** Its newest pull request. */
+  pr: PullRequest | null;
+  checks: CheckState | null;
+}
+
 export interface Development {
   /** Branches still there, newest first. */
   branches: { name: string; url: string | null; repo: string }[];
+  /** The issue's branches as the panel lays them out: the one that
+   *  matters most on top — with an open pull request, else the newest —
+   *  the others still being worked on folded below it, and the done ones
+   *  (deleted, or merged) apart. */
+  branchView: {
+    main: BranchRow | null;
+    others: BranchRow[];
+    done: BranchRow[];
+  };
   pullRequests: {
     pr: PullRequest;
     steps: { label: string; state: StepState }[];
@@ -40,7 +60,31 @@ export function development(
     sortEntries(raw);
   const checksOf = (pr: PullRequest): Checks | undefined =>
     checks.find((c) => c.repo === pr.repo && c.branch === pr.branch);
+  const rows: BranchRow[] = branches.map((b) => ({
+    name: b.name,
+    url: b.url,
+    repo: b.repo,
+    deleted: b.deleted,
+    pr:
+      pullRequests.find((p) => p.repo === b.repo && p.branch === b.name) ??
+      null,
+    checks:
+      checks.find((c) => c.repo === b.repo && c.branch === b.name)?.state ??
+      null,
+  }));
+  const isOpen = (r: BranchRow) =>
+    r.pr?.state === "open" || r.pr?.state === "draft";
+  const done = rows.filter(
+    (r) => r.deleted || (r.pr?.state === "merged" && !isOpen(r)),
+  );
+  const active = rows.filter((r) => !done.includes(r));
+  const main = active.find(isOpen) ?? active[0] ?? null;
   return {
+    branchView: {
+      main,
+      others: active.filter((r) => r !== main),
+      done,
+    },
     branches: branches
       .filter((b) => !b.deleted)
       .map((b) => ({ name: b.name, url: b.url, repo: b.repo })),
