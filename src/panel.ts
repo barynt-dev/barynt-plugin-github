@@ -370,6 +370,9 @@ export async function renderDevelopment(
   run: (actionId: string, choice?: string) => void,
   /** Opens the plugin's settings in Barynt (`Plugin.openSettings`). */
   openSettings: (level: "personal" | "project") => void = () => {},
+  /** The part a board's badge asked for (`context.focus`) — unfolded,
+   *  whatever was kept. */
+  focus?: string,
 ): Promise<void> {
   const data = await api.issueData.list([issueId]);
   const dev = development(data[issueId] ?? []);
@@ -521,9 +524,12 @@ export async function renderDevelopment(
   // GitHub's page to create one (the `create-pull-request` action). The
   // open ones first; past the first two, the rest behind "more", sorted
   // into open and done (merged, closed). The section folds away.
+  // Folded by default — open where someone opened it, or where a badge
+  // asked for it.
   const prOpen =
-    (await api.storage.personal.get<boolean>(FOLD_PR).catch(() => null)) !==
-    false;
+    focus === "pull-requests" ||
+    (await api.storage.personal.get<boolean>(FOLD_PR).catch(() => null)) ===
+      true;
   const isActive = (p: { pr: PullRequest }) =>
     p.pr.state === "open" || p.pr.state === "draft";
   const activePrs = dev.pullRequests.filter(isActive);
@@ -611,10 +617,11 @@ export async function renderDevelopment(
 
   // One line each — its first, the rest cut off — that opens the commit
   // on GitHub. The section folds away like the others.
+  // Folded by default, like the pull requests.
   const commitsOpen =
     (await api.storage.personal
       .get<boolean>(FOLD_COMMITS)
-      .catch(() => null)) !== false;
+      .catch(() => null)) === true;
   const commitParts: HTMLElement[] = [];
   if (dev.commits.length > 0) {
     const box = stack();

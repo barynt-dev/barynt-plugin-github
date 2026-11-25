@@ -41,6 +41,7 @@ export default class GitHub extends Plugin {
             (id, choice) =>
               this.runAction(id, choice === undefined ? {} : { choice }),
             (level) => this.openSettings(level),
+            this.context.focus,
           );
       },
     });

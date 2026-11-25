@@ -100,6 +100,8 @@ export function pullRequestRow(
     kind: "row",
     // A click opens the issue at this panel (BARY-229).
     panel: "development",
+    // …at its pull requests, unfolded.
+    section: "pull-requests",
     text: `#${pr.number} ${look.text}`,
     tone: look.tone,
     tooltip: `${pr.repo}#${pr.number}: ${pr.title}`.slice(0, 120),

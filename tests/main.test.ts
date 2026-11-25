@@ -145,6 +145,67 @@ describe("the GitHub plugin", () => {
     expect(noToken.root.textContent).toContain("or keep your own token");
   });
 
+  it("opens on the branch — the pull requests too when a badge asked", async () => {
+    const pr = {
+      kind: "pull_request",
+      repo: "acme/web",
+      number: 42,
+      title: "Keep the cookie",
+      state: "open",
+      review: null,
+      url: "https://github.com/acme/web/pull/42",
+      branch: "web-1",
+      base: "main",
+      author: "ada",
+      additions: 1,
+      deletions: 0,
+      at: "2026-11-19T10:00:00Z",
+    };
+    const folds = async (focus?: string) => {
+      const root = document.createElement("div") as unknown as HTMLElement;
+      const host = createTestHost({
+        root,
+        context: {
+          slot: { kind: "issuePanel", id: "development" },
+          issueId: "i-1",
+          ...(focus && { focus }),
+        },
+        handlers: {
+          "issueData.list": () => ({
+            "i-1": [
+              { key: "pr", value: pr, updatedAt: pr.at },
+              {
+                key: "b",
+                value: {
+                  kind: "branch",
+                  repo: "acme/web",
+                  name: "web-1",
+                  url: null,
+                  deleted: false,
+                  at: pr.at,
+                },
+                updatedAt: pr.at,
+              },
+            ],
+          }),
+          "net.fetch": (() => ({
+            status: 200,
+            headers: {},
+            text: "[]",
+          })) as never,
+        },
+      });
+      await loadPlugin(GitHub, host);
+      await new Promise((r) => setTimeout(r, 0));
+      return [...root.querySelectorAll("details.bui-fold")].map(
+        (d) => (d as unknown as { open: boolean }).open,
+      );
+    };
+    // Branch, pull requests, commits.
+    expect(await folds()).toEqual([true, false, false]);
+    expect(await folds("pull-requests")).toEqual([true, true, false]);
+  });
+
   it("with nothing linked, says where to start", async () => {
     const panel = (
       repositories: string[],
