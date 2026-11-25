@@ -414,23 +414,55 @@ export async function renderDevelopment(
   const donePrs = dev.pullRequests.filter((p) => !isActive(p));
   // The repository only where there's more than one.
   const withRepo = new Set(dev.pullRequests.map((p) => p.pr.repo)).size > 1;
-  const card = ({ pr, steps }: (typeof dev.pullRequests)[number]) =>
+  const prCard = ({ pr, steps }: (typeof dev.pullRequests)[number]) =>
     pullRequestCard(api, pr, steps, withRepo);
+  // Merged or closed: a small card — number, title, how it ended and a
+  // way to GitHub; no way ahead, no details.
+  const doneList = (prs: typeof dev.pullRequests): HTMLElement[] =>
+    prs.map(({ pr }) => {
+      const look = prLook(pr);
+      return card({
+        title: `${withRepo ? pr.repo : ""}#${pr.number} ${withoutIssueKey(pr.title)}`,
+        compact: true,
+        actions: [
+          badge({ text: look.text, tone: look.tone }),
+          ...(pr.url
+            ? [
+                button({
+                  label: t("openOnGitHub"),
+                  icon: "external-link",
+                  iconOnly: true,
+                  size: "sm",
+                  variant: "ghost",
+                  onClick: () => {
+                    window.open(pr.url as string, "_blank", "noopener");
+                  },
+                }),
+              ]
+            : []),
+        ],
+      });
+    });
   const shown = [...activePrs, ...donePrs].slice(0, PRS_SHOWN);
-  const prParts = shown.map(card);
-  for (const [i, p] of shown.entries())
-    if (!isActive(p)) prParts[i].style.opacity = "0.6";
+  const shownDone = shown.filter((p) => !isActive(p));
+  const prParts = [
+    ...shown.filter(isActive).map(prCard),
+    ...doneList(shownDone).map((el) => {
+      el.style.opacity = "0.6";
+      return el;
+    }),
+  ];
   const morePrs = dev.pullRequests.length - shown.length;
   if (morePrs > 0)
     prParts.push(
       moreBox(t("morePullRequests", { count: morePrs }), [
         {
           title: t("activePullRequests"),
-          items: activePrs.filter((p) => !shown.includes(p)).map(card),
+          items: activePrs.filter((p) => !shown.includes(p)).map(prCard),
         },
         {
           title: t("finishedPullRequests"),
-          items: donePrs.filter((p) => !shown.includes(p)).map(card),
+          items: doneList(donePrs.filter((p) => !shown.includes(p))),
           dim: true,
         },
       ]),
