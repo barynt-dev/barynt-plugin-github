@@ -167,7 +167,8 @@ export async function renderDevelopment(
         onClick: () => run("create-branch"),
       }),
     );
-  // Each branch: to copy, to open, to rename and to delete.
+  // Each branch: a click copies it, a button opens it, and "…" holds
+  // renaming and deleting.
   for (const b of dev.branches)
     parts.push(
       copyField({
@@ -175,15 +176,15 @@ export async function renderDevelopment(
         icon: "git-branch",
         label: t("copyBranchName"),
         ...(b.url && { href: b.url }),
-        actions: [
+        menu: [
           {
-            icon: "pencil",
             label: t("renameBranch"),
+            icon: "pencil",
             onClick: () => run("rename-branch", branchChoice(b.repo, b.name)),
           },
           {
-            icon: "trash",
             label: t("deleteBranch"),
+            icon: "trash",
             danger: true,
             onClick: () => run("delete-branch", branchChoice(b.repo, b.name)),
           },
