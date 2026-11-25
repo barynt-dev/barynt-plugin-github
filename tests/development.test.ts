@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { development, latestReviews } from "../src/development";
+import {
+  development,
+  latestReviews,
+  prProgress,
+  withoutIssueKey,
+} from "../src/development";
+import type { PullRequest } from "../src/entries";
 
 // What the "Development" panel shows (BARY-229), from Barynt's entries.
 
@@ -172,5 +178,59 @@ describe("several branches (BARY-238)", () => {
       "web-42-merged",
       "web-42-gone",
     ]);
+  });
+});
+
+describe("a pull request's way to the merge", () => {
+  const pr = (over: Partial<PullRequest>): PullRequest => ({
+    kind: "pull_request",
+    repo: "acme/web",
+    number: 5,
+    title: "MOB-2: Fix it",
+    state: "open",
+    review: null,
+    url: "https://github.com/acme/web/pull/5",
+    branch: "mob-2",
+    base: "main",
+    author: "ada",
+    additions: 1,
+    deletions: 0,
+    at: "2026-11-25T10:00:00Z",
+    ...over,
+  });
+  const states = (p: ReturnType<typeof prProgress>) =>
+    p.stages.map((s) => s.state);
+
+  it("names failed checks first, then a review that wants changes", () => {
+    const failing = prProgress(pr({ review: "changes_requested" }), [
+      { state: "danger" },
+      { state: "danger" },
+      { state: "success" },
+    ]);
+    expect(failing.next).toEqual({ kind: "checksFailed", count: 2 });
+    expect(states(failing)).toEqual(["success", "danger", "danger", "pending"]);
+    expect(prProgress(pr({ review: "changes_requested" }), []).next.kind).toBe(
+      "changesRequested",
+    );
+  });
+
+  it("waits on a draft, running checks, a review — then it's ready", () => {
+    expect(prProgress(pr({ state: "draft" }), []).next.kind).toBe("draft");
+    expect(prProgress(pr({}), [{ state: "running" }]).next.kind).toBe(
+      "checksRunning",
+    );
+    expect(prProgress(pr({}), []).next.kind).toBe("awaitingReview");
+    const ready = prProgress(pr({ review: "approved" }), [
+      { state: "success" },
+    ]);
+    expect(ready.next.kind).toBe("readyToMerge");
+    expect(states(ready)).toEqual(["success", "success", "success", "warning"]);
+  });
+
+  it("drops the issue's key from a title", () => {
+    expect(withoutIssueKey("MOB-2: Fix it")).toBe("Fix it");
+    expect(withoutIssueKey("[BARY-238] Fix it")).toBe("Fix it");
+    expect(withoutIssueKey("Fix MOB-2")).toBe("Fix MOB-2");
+    expect(withoutIssueKey("MOB-2")).toBe("MOB-2");
   });
 });

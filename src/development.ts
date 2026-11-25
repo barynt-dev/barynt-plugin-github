@@ -125,3 +125,77 @@ export function latestReviews(
   }
   return [...byUser].map(([login, state]) => ({ login, state }));
 }
+
+/** A station on a pull request's way to merging. */
+export type Stage = "ready" | "checks" | "review" | "merge";
+
+/** What stands between an open pull request and its merge — the first
+ *  that holds it up, or that it's ready. */
+export type NextStep =
+  | { kind: "checksFailed"; count: number }
+  | { kind: "changesRequested" }
+  | { kind: "draft" }
+  | { kind: "checksRunning" }
+  | { kind: "awaitingReview" }
+  | { kind: "readyToMerge" };
+
+/**
+ * Where an open pull request stands — ready (not a draft), its checks, its
+ * review, the merge — and the next thing to do about it. A pull request
+ * without checks isn't held up by them.
+ */
+export function prProgress(
+  pr: PullRequest,
+  steps: { state: StepState }[],
+): { stages: { stage: Stage; state: StepState }[]; next: NextStep } {
+  const failed = steps.filter((s) => s.state === "danger").length;
+  const running = steps.some(
+    (s) => s.state === "running" || s.state === "warning",
+  );
+  const checks: StepState =
+    steps.length === 0
+      ? "pending"
+      : failed > 0
+        ? "danger"
+        : running
+          ? "running"
+          : "success";
+  const review: StepState =
+    pr.review === "changes_requested"
+      ? "danger"
+      : pr.review === "approved"
+        ? "success"
+        : "pending";
+  const draft = pr.state === "draft";
+  const next: NextStep =
+    failed > 0
+      ? { kind: "checksFailed", count: failed }
+      : pr.review === "changes_requested"
+        ? { kind: "changesRequested" }
+        : draft
+          ? { kind: "draft" }
+          : running
+            ? { kind: "checksRunning" }
+            : pr.review !== "approved"
+              ? { kind: "awaitingReview" }
+              : { kind: "readyToMerge" };
+  return {
+    stages: [
+      { stage: "ready", state: draft ? "warning" : "success" },
+      { stage: "checks", state: checks },
+      { stage: "review", state: review },
+      {
+        stage: "merge",
+        state: next.kind === "readyToMerge" ? "warning" : "pending",
+      },
+    ],
+    next,
+  };
+}
+
+/** A pull request's title without the issue's key in front — "MOB-2: Fix
+ *  it" in MOB-2 is "Fix it". */
+export function withoutIssueKey(title: string): string {
+  const rest = title.replace(/^\s*\[?[A-Z][A-Z0-9_]*-\d+\]?\s*[:\-–—]?\s*/, "");
+  return rest.length > 0 ? rest : title;
+}

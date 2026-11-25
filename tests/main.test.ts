@@ -98,6 +98,18 @@ describe("the GitHub plugin", () => {
       };
     };
     const settle = () => new Promise((r) => setTimeout(r, 0));
+    // Who reviewed loads when its details open.
+    const openDetails = (root: { querySelector: (s: string) => unknown }) => {
+      const details = root.querySelector("details.bui-card-more") as {
+        open: boolean;
+        dispatchEvent: (e: unknown) => void;
+        ownerDocument: { defaultView: { Event: new (t: string) => unknown } };
+      };
+      details.open = true;
+      details.dispatchEvent(
+        new details.ownerDocument.defaultView.Event("toggle"),
+      );
+    };
 
     const withToken = panel(() => ({
       status: 200,
@@ -106,7 +118,12 @@ describe("the GitHub plugin", () => {
     }));
     await loadPlugin(GitHub, withToken.host);
     await settle();
-    expect(withToken.root.textContent).toContain("acme/web#42");
+    // One repository: the number alone.
+    expect(withToken.root.textContent).toContain("#42 Keep the cookie");
+    expect(withToken.root.textContent).toContain("Waiting for a review");
+    expect(withToken.root.textContent).not.toContain("tom");
+    openDetails(withToken.root);
+    await settle();
     expect(withToken.root.textContent).toContain("tom");
     expect(
       withToken.host.calls.find((c) => c.method === "net.fetch"),
@@ -122,6 +139,8 @@ describe("the GitHub plugin", () => {
       throw new Error("credential_missing");
     });
     await loadPlugin(GitHub, noToken.host);
+    await settle();
+    openDetails(noToken.root);
     await settle();
     expect(noToken.root.textContent).toContain("or keep your own token");
   });

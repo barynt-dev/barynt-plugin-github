@@ -5,11 +5,14 @@ import {
   card,
   copyField,
   diffStat,
+  link,
   list,
   notice,
   row,
+  type StepState,
   sectionHeader,
   stack,
+  stageBar,
   stepList,
   text,
   user,
@@ -20,6 +23,9 @@ import {
   COMMITS_SHOWN,
   development,
   latestReviews,
+  type NextStep,
+  prProgress,
+  withoutIssueKey,
 } from "./development";
 import type { PullRequest } from "./entries";
 import { branchSettings } from "./github";
@@ -79,53 +85,130 @@ async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
   }
 }
 
+const NEXT_TONE = {
+  checksFailed: "danger",
+  changesRequested: "warning",
+  draft: "neutral",
+  checksRunning: "info",
+  awaitingReview: "info",
+  readyToMerge: "success",
+} as const;
+
+/** The next thing to do about it, in words. */
+function nextText(next: NextStep): string {
+  if (next.kind === "checksFailed")
+    return t("nextChecksFailed", { count: next.count });
+  return t(`next_${next.kind}`);
+}
+
+/**
+ * A pull request as a card: its number and title, then — while it's open —
+ * its way to the merge as stations and the next thing to do, with a link
+ * there. Checks and reviews one by one fold away under "Details"; the
+ * reviews load from GitHub the first time it opens.
+ */
 function pullRequestCard(
   api: Api,
   pr: PullRequest,
-  steps: { label: string; state: import("@barynt/plugin-sdk/ui").StepState }[],
+  steps: { label: string; state: StepState }[],
+  withRepo: boolean,
 ): HTMLElement {
+  const open = pr.state === "open" || pr.state === "draft";
   const look = prLook(pr);
+  const title = `${withRepo ? pr.repo : ""}#${pr.number} ${withoutIssueKey(pr.title)}`;
+  const progress = open ? prProgress(pr, steps) : null;
   const who = stack();
-  who.append(text({ text: t("loadingReviews"), tone: "subtle", size: "sm" }));
-  if (pr.state === "open" || pr.state === "draft")
-    void reviews(api, pr).then((el) => who.replaceChildren(el));
-  else who.replaceChildren();
-  // The state first, in the row: the sidebar is too narrow for it beside
-  // the title.
-  const meta = row(
-    badge({ text: look.text, tone: look.tone }),
-    ...(pr.additions !== null && pr.deletions !== null
-      ? [diffStat({ added: pr.additions, removed: pr.deletions })]
-      : []),
+  let loaded = false;
+  const details: HTMLElement[] = [
     text({
       text: [pr.author, ago(pr.at)].filter(Boolean).join(" · "),
       tone: "subtle",
       size: "xs",
-      inline: true,
     }),
-  );
+    ...(steps.length > 0
+      ? [
+          text({
+            text: t("checksTitle"),
+            size: "xs",
+            weight: "semibold",
+            tone: "subtle",
+          }),
+          stepList({ steps }),
+        ]
+      : []),
+    ...(open
+      ? [
+          text({
+            text: t("reviewsTitle"),
+            size: "xs",
+            weight: "semibold",
+            tone: "subtle",
+          }),
+          who,
+        ]
+      : []),
+  ];
+  const where = (next: NextStep) =>
+    pr.url && next.kind === "checksFailed" ? `${pr.url}/checks` : pr.url;
   return card({
-    title: `${pr.repo}#${pr.number}`,
-    description: pr.title,
+    title,
     compact: true,
-    children: [
-      meta,
-      ...(steps.length > 0 ? [stepList({ steps })] : []),
-      ...(pr.state === "open" || pr.state === "draft" ? [who] : []),
-      ...(pr.url
-        ? [
-            button({
-              label: t("openOnGitHub"),
-              icon: "external-link",
-              size: "sm",
-              variant: "ghost",
-              onClick: () => {
-                window.open(pr.url as string, "_blank", "noopener");
-              },
+    ...(pr.url && {
+      actions: [
+        button({
+          label: t("openOnGitHub"),
+          icon: "external-link",
+          iconOnly: true,
+          size: "sm",
+          variant: "ghost",
+          onClick: () => {
+            window.open(pr.url as string, "_blank", "noopener");
+          },
+        }),
+      ],
+    }),
+    children: progress
+      ? [
+          stageBar({
+            stages: progress.stages.map((s) => ({
+              label: t(`stage_${s.stage}`),
+              state: s.state,
+            })),
+          }),
+          notice({
+            text: nextText(progress.next),
+            tone: NEXT_TONE[progress.next.kind],
+            compact: true,
+            ...(where(progress.next) && {
+              action: link({
+                text:
+                  progress.next.kind === "readyToMerge" ||
+                  progress.next.kind === "draft"
+                    ? t("onGitHub")
+                    : t("look"),
+                href: where(progress.next) as string,
+              }),
             }),
-          ]
-        : []),
-    ],
+          }),
+        ]
+      : // Merged or closed: where it ended, no way ahead.
+        [row(badge({ text: look.text, tone: look.tone }))],
+    more: {
+      label: t("details"),
+      ...(pr.additions !== null &&
+        pr.deletions !== null && {
+          aside: [diffStat({ added: pr.additions, removed: pr.deletions })],
+        }),
+      content: details,
+      onToggle: (isOpen) => {
+        if (!isOpen || loaded || !open) return;
+        loaded = true;
+        who.replaceChildren(
+          text({ text: t("loadingReviews"), tone: "subtle", size: "sm" }),
+        );
+        void reviews(api, pr).then((el) => who.replaceChildren(el));
+      },
+    },
   });
 }
 
@@ -329,8 +412,10 @@ export async function renderDevelopment(
     p.pr.state === "open" || p.pr.state === "draft";
   const activePrs = dev.pullRequests.filter(isActive);
   const donePrs = dev.pullRequests.filter((p) => !isActive(p));
+  // The repository only where there's more than one.
+  const withRepo = new Set(dev.pullRequests.map((p) => p.pr.repo)).size > 1;
   const card = ({ pr, steps }: (typeof dev.pullRequests)[number]) =>
-    pullRequestCard(api, pr, steps);
+    pullRequestCard(api, pr, steps, withRepo);
   const shown = [...activePrs, ...donePrs].slice(0, PRS_SHOWN);
   const prParts = shown.map(card);
   for (const [i, p] of shown.entries())
