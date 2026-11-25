@@ -131,8 +131,8 @@ function pullRequestCard(
 }
 
 /** Draws the panel for an issue into `el`. */
-/** Whether the Branch section is open — kept while the panel is. */
-let branchOpen = true;
+/** Where a person's Branch section remembers being folded away. */
+const FOLD_BRANCH = "fold:branch";
 
 /** A branch's line under its name: its pull request, its checks — or
  *  that it's gone. */
@@ -158,6 +158,10 @@ export async function renderDevelopment(
   const parts: HTMLElement[] = [];
 
   const branchParts: HTMLElement[] = [];
+  // Folded away or not — each person's own, kept with the plugin.
+  const branchOpen =
+    (await api.storage.personal.get<boolean>(FOLD_BRANCH).catch(() => null)) !==
+    false;
   // The branch that matters most on top; the others still being worked on
   // folded below it, the done ones (deleted, merged) apart.
   const { main, others, done } = dev.branchView;
@@ -237,7 +241,7 @@ export async function renderDevelopment(
         content: branchParts,
         open: branchOpen,
         onToggle: (open) => {
-          branchOpen = open;
+          void api.storage.personal.set(FOLD_BRANCH, open).catch(() => {});
         },
       },
     }),

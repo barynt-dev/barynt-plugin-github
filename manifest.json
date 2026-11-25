@@ -140,7 +140,8 @@
     "webhooks:receive",
     "ui:issue-badge",
     "ui:issue-panel",
-    "ui:action"
+    "ui:action",
+    "storage:own"
   ],
   "network": ["api.github.com"],
   "contributes": {
