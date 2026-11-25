@@ -212,18 +212,7 @@ export async function renderDevelopment(
     if (dim) for (const c of content) c.style.opacity = "0.6";
     return showMore({ label: title, content });
   };
-  if (!main)
-    branchParts.push(
-      text({ text: t("noBranchNames"), tone: "subtle", size: "sm" }),
-      button({
-        label: t("createBranch"),
-        icon: "git-branch",
-        size: "sm",
-        variant: "secondary",
-        onClick: () => run("create-branch"),
-      }),
-    );
-  else branchParts.push(branchRow(main));
+  if (main) branchParts.push(branchRow(main));
   if (others.length > 0)
     branchParts.push(fold(t("moreBranches", { count: others.length }), others));
   if (done.length > 0)
@@ -238,6 +227,7 @@ export async function renderDevelopment(
       title: t("branch"),
       icon: "git-branch",
       size: "sm",
+      count: (main ? 1 : 0) + others.length,
       actions: [
         button({
           label: t("createBranch"),
@@ -302,9 +292,7 @@ export async function renderDevelopment(
       size: "sm",
       title: t("pullRequests"),
       icon: "git-pull-request",
-      ...(dev.pullRequests.length > 0 && {
-        meta: String(dev.pullRequests.length),
-      }),
+      count: dev.pullRequests.length,
       actions: [
         button({
           label: t("createPullRequest"),
@@ -317,8 +305,6 @@ export async function renderDevelopment(
       ],
     }),
   );
-  if (dev.pullRequests.length === 0)
-    parts.push(text({ text: t("noPullRequests"), tone: "subtle", size: "sm" }));
   for (const { pr, steps } of dev.pullRequests)
     parts.push(pullRequestCard(api, pr, steps));
 
@@ -327,12 +313,10 @@ export async function renderDevelopment(
       size: "sm",
       title: t("commits"),
       icon: "git-commit-horizontal",
-      ...(dev.commits.length > 0 && { meta: String(dev.commits.length) }),
+      count: dev.commits.length,
     }),
   );
-  if (dev.commits.length === 0)
-    parts.push(text({ text: t("noCommits"), tone: "subtle", size: "sm" }));
-  else {
+  if (dev.commits.length > 0) {
     const list = stack();
     const show = (count: number): void => {
       list.replaceChildren(
@@ -370,7 +354,7 @@ export async function renderDevelopment(
         size: "sm",
         title: t("deployments"),
         icon: "rocket",
-        meta: String(dev.deployments.length),
+        count: dev.deployments.length,
       }),
       list({
         items: dev.deployments.map((d) => ({
