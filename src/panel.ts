@@ -134,17 +134,6 @@ function pullRequestCard(
 /** Where a person's Branch section remembers being folded away. */
 const FOLD_BRANCH = "fold:branch";
 
-/** A branch's line under its name: its pull request, its checks — or
- *  that it's gone. */
-function branchStatus(r: BranchRow): string | null {
-  const parts: string[] = [];
-  if (r.deleted) parts.push(t("branchGone"));
-  if (r.pr) parts.push(`PR #${r.pr.number} · ${prLook(r.pr).text}`);
-  if (r.checks && r.checks !== "neutral" && !r.deleted)
-    parts.push(t(`checks_${r.checks}`));
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
 export async function renderDevelopment(
   api: Api,
   el: HTMLElement,
@@ -198,27 +187,38 @@ export async function renderDevelopment(
         ],
       }),
     });
-    const status = branchStatus(r);
-    if (!status) return field;
-    const line = text({ text: status, tone: "subtle", size: "xs" });
-    // Under the name, past its icon.
-    line.style.paddingLeft = "2.25rem";
-    const box = stack(field, line);
-    box.style.gap = "0.25rem";
-    return box;
+    return field;
   };
-  const fold = (title: string, rows: BranchRow[], dim = false) => {
-    const content = rows.map(branchRow);
-    if (dim) for (const c of content) c.style.opacity = "0.6";
-    return showMore({ label: title, content });
-  };
+  // Everything beyond the main branch behind one button, sorted inside:
+  // the ones still being worked on, then the done ones (merged, deleted).
+  const hidden = others.length + done.length;
   if (main) branchParts.push(branchRow(main));
-  if (others.length > 0)
-    branchParts.push(fold(t("moreBranches", { count: others.length }), others));
-  if (done.length > 0)
+  if (hidden > 0) {
+    const both = others.length > 0 && done.length > 0;
+    const group = (title: string, rows: BranchRow[], dim = false) => {
+      const content = rows.map(branchRow);
+      if (dim) for (const c of content) c.style.opacity = "0.6";
+      if (!both) return content;
+      const head = text({
+        text: title,
+        tone: "subtle",
+        size: "xs",
+        weight: "medium",
+      });
+      return [stack(head, ...content)];
+    };
     branchParts.push(
-      fold(t("doneBranches", { count: done.length }), done, true),
+      showMore({
+        label: main
+          ? t("moreBranches", { count: hidden })
+          : t("doneBranches", { count: hidden }),
+        content: [
+          ...group(t("activeBranches"), others),
+          ...group(t("finishedBranches"), done, true),
+        ],
+      }),
     );
+  }
   // "+": another branch — in a window Barynt shows, with the name and the
   // branch it starts from to change (the `create-branch` action). The
   // section folds away under its head.
