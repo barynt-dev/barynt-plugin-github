@@ -206,20 +206,30 @@ export async function renderDevelopment(
       });
       return [stack(head, ...content)];
     };
-    // Like the commits' "Show all": a quiet button that gives way to them.
+    // Like the commits' "Show all": a quiet button that gives way to them,
+    // and one under them that folds them away again.
     const rest = [
       ...group(t("activeBranches"), others),
       ...group(t("finishedBranches"), done, true),
     ];
-    const more: HTMLElement = button({
-      label: main
-        ? t("moreBranches", { count: hidden })
-        : t("doneBranches", { count: hidden }),
-      size: "sm",
-      variant: "ghost",
-      onClick: () => more.replaceWith(...rest),
-    });
-    branchParts.push(more);
+    const box = stack();
+    const show = (open: boolean): void => {
+      box.replaceChildren(
+        ...(open ? rest : []),
+        button({
+          label: open
+            ? t("showLess")
+            : main
+              ? t("moreBranches", { count: hidden })
+              : t("doneBranches", { count: hidden }),
+          size: "sm",
+          variant: "ghost",
+          onClick: () => show(!open),
+        }),
+      );
+    };
+    show(false);
+    branchParts.push(box);
   }
   // "+": another branch — in a window Barynt shows, with the name and the
   // branch it starts from to change (the `create-branch` action). The
@@ -343,7 +353,16 @@ export async function renderDevelopment(
                 onClick: () => show(dev.commits.length),
               }),
             ]
-          : []),
+          : dev.commits.length > COMMITS_SHOWN
+            ? [
+                button({
+                  label: t("showLess"),
+                  size: "sm",
+                  variant: "ghost",
+                  onClick: () => show(COMMITS_SHOWN),
+                }),
+              ]
+            : []),
       );
     };
     show(COMMITS_SHOWN);

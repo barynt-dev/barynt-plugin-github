@@ -81,6 +81,7 @@ const en = {
   pullRequests: "Pull requests",
   commits: "Commits",
   showAll: "Show all {count}",
+  showLess: "Show less",
 
   // GitHub Actions (BARY-238)
   pickWorkflow:
@@ -178,6 +179,7 @@ export const t = translator({
     pullRequests: "Pull Requests",
     commits: "Commits",
     showAll: "Alle {count} anzeigen",
+    showLess: "Weniger anzeigen",
 
     pickWorkflow:
       "Trage zuerst einen Workflow in den Projekteinstellungen → Plugins → GitHub ein.",
