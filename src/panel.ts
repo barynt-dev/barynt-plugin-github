@@ -9,6 +9,7 @@ import {
   notice,
   row,
   sectionHeader,
+  showMore,
   stack,
   stepList,
   text,
@@ -209,11 +210,7 @@ export async function renderDevelopment(
   const fold = (title: string, rows: BranchRow[], dim = false) => {
     const content = rows.map(branchRow);
     if (dim) for (const c of content) c.style.opacity = "0.6";
-    return sectionHeader({
-      title,
-      size: "sm",
-      fold: { content, open: false },
-    });
+    return showMore({ label: title, content });
   };
   if (!main)
     parts.push(
