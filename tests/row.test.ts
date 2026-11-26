@@ -70,7 +70,7 @@ describe("how a pull request reads", () => {
 });
 
 describe("the row", () => {
-  it("draws signals, not sentences: number, checks as passed/all, the review", () => {
+  it("draws number, a divider, the review — and on the right the checks", () => {
     const row = pullRequestRow(entries(pr(), checks()));
     expect(row).toMatchObject({
       badge: "pull-request",
@@ -79,73 +79,80 @@ describe("the row", () => {
       tooltip: "acme/web#42: Keep the session cookie",
     });
     expect(row?.parts).toEqual([
-      { type: "icon", icon: "git-pull-request", tone: "success" },
-      { type: "text", text: "#42", size: "xs", mono: true, tone: "subtle" },
-      { type: "icon", icon: "timer", tone: "info" },
       {
-        type: "text",
-        text: "2/3",
-        size: "xs",
-        mono: true,
-        tone: "info",
-        strong: true,
+        type: "group",
+        gap: 1,
+        align: "center",
+        children: [
+          { type: "icon", icon: "git-pull-request", tone: "success" },
+          { type: "text", text: "#42", size: "xs", mono: true, tone: "subtle" },
+        ],
       },
+      { type: "divider" },
       { type: "icon", icon: "eye", tone: "neutral" },
       { type: "text", text: "Review", tone: "subtle", size: "xs" },
       { type: "spacer" },
+      // Running: how many of all are done.
+      {
+        type: "group",
+        gap: 1,
+        align: "center",
+        children: [
+          { type: "icon", icon: "timer", tone: "info" },
+          {
+            type: "text",
+            text: "2/3",
+            size: "xs",
+            mono: true,
+            tone: "info",
+            strong: true,
+          },
+        ],
+      },
     ]);
-    const changes = pullRequestRow(
+    // Failed: how many of all failed.
+    const failed = pullRequestRow(
       entries(
         pr({ review: "changes_requested" }),
-        checks({ state: "failure" }),
+        checks({
+          state: "failure",
+          runs: [
+            { name: "build", state: "failure", url: null },
+            { name: "test", state: "success", url: null },
+          ],
+        }),
       ),
     );
-    expect(changes?.parts).toContainEqual({
+    expect(failed?.parts?.at(-1)).toMatchObject({
+      children: [
+        { icon: "circle-x", tone: "danger" },
+        { text: "1/2", tone: "danger" },
+      ],
+    });
+    expect(failed?.parts).toContainEqual({
       type: "text",
       text: "Changes",
       tone: "warning",
       size: "xs",
       strong: true,
     });
-    expect(changes?.parts).toContainEqual({
-      type: "icon",
-      icon: "circle-x",
-      tone: "danger",
-    });
   });
 
   it("leaves other branches' checks, and checks once it's merged", () => {
+    // Nothing after the spacer: no checks on the right.
     const other = checks({ branch: "main", state: "failure" });
-    expect(pullRequestRow(entries(pr(), other))?.parts).not.toContainEqual(
-      expect.objectContaining({ mono: true, tone: "danger" }),
-    );
+    expect(pullRequestRow(entries(pr(), other))?.parts?.at(-1)).toEqual({
+      type: "spacer",
+    });
     const merged = pullRequestRow(entries(pr({ state: "merged" }), checks()));
     expect(merged?.parts).toContainEqual({
       type: "text",
       text: "Merged",
       tone: "primary",
+      size: "xs",
       strong: true,
     });
-    expect(merged?.parts).not.toContainEqual(
-      expect.objectContaining({ type: "icon", icon: "timer" }),
-    );
-  });
-
-  it("counts the other pull requests still open — not the done ones", () => {
-    const row = pullRequestRow(
-      entries(
-        pr(),
-        pr({ number: 7, state: "merged", at: "2026-11-18T10:00:00Z" }),
-        pr({ number: 8, state: "draft", at: "2026-11-17T10:00:00Z" }),
-      ),
-    );
-    expect(row?.parts?.at(-1)).toMatchObject({
-      type: "group",
-      children: [
-        { type: "icon", icon: "git-pull-request" },
-        { type: "text", text: "+1" },
-      ],
-    });
+    expect(merged?.parts?.at(-1)).toEqual({ type: "spacer" });
   });
 
   it("draws nothing without a pull request", () => {

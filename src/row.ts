@@ -47,26 +47,47 @@ export function shownPullRequest(prs: PullRequest[]): PullRequest | null {
   return open[0] ?? prs.find((p) => p.state === "merged") ?? prs[0] ?? null;
 }
 
-/** The branch's checks as one signal: how many passed of how many, in
- *  the colour of how they went — nothing to shorten. */
+/** The branch's checks as one signal on the right: failed, how many of
+ *  all failed; else how many are done or passed — in their colour. */
 function checkParts(checks: Checks | undefined): RowPart[] {
   if (!checks || checks.runs.length === 0) return [];
-  const passed = checks.runs.filter((r) => r.state === "success").length;
+  const all = checks.runs.length;
+  const count = (state: string) =>
+    checks.runs.filter((r) => r.state === state).length;
   const look =
     checks.state === "failure"
-      ? { icon: "circle-x" as const, tone: "danger" as const }
+      ? {
+          icon: "circle-x" as const,
+          tone: "danger" as const,
+          n: count("failure"),
+        }
       : checks.state === "pending"
-        ? { icon: "timer" as const, tone: "info" as const }
-        : { icon: "circle-check" as const, tone: "success" as const };
+        ? {
+            icon: "timer" as const,
+            tone: "info" as const,
+            n: all - count("pending"),
+          }
+        : {
+            icon: "circle-check" as const,
+            tone: "success" as const,
+            n: count("success"),
+          };
   return [
-    { type: "icon", icon: look.icon, tone: look.tone },
     {
-      type: "text",
-      text: `${passed}/${checks.runs.length}`,
-      size: "xs",
-      mono: true,
-      tone: look.tone,
-      strong: true,
+      type: "group",
+      gap: 1,
+      align: "center",
+      children: [
+        { type: "icon", icon: look.icon, tone: look.tone },
+        {
+          type: "text",
+          text: `${look.n}/${all}`,
+          size: "xs",
+          mono: true,
+          tone: look.tone,
+          strong: true,
+        },
+      ],
     },
   ];
 }
@@ -121,62 +142,43 @@ export function pullRequestRow(
   if (!pr) return null;
   const look = prLook(pr);
   const open = pr.state === "open" || pr.state === "draft";
-  // Only the others still open: merged and closed ones are done with.
-  const others = pullRequests.filter(
-    (p) => p !== pr && (p.state === "open" || p.state === "draft"),
-  ).length;
   const ofBranch = checks.find(
     (c) => c.repo === pr.repo && c.branch === pr.branch,
   );
   // Signals, not sentences: the number, the checks as "0/2", the review
   // in a word — open; merged or closed, how it ended.
   const parts: RowPart[] = [
-    { type: "icon", icon: look.icon, tone: look.tone },
+    // Its icon and number close together, then what it's waiting on.
     {
-      type: "text",
-      text: `#${pr.number}`,
-      size: "xs",
-      mono: true,
-      tone: "subtle",
+      type: "group",
+      gap: 1,
+      align: "center",
+      children: [
+        { type: "icon", icon: look.icon, tone: look.tone },
+        {
+          type: "text",
+          text: `#${pr.number}`,
+          size: "xs",
+          mono: true,
+          tone: "subtle",
+        },
+      ],
     },
+    { type: "divider" },
     ...(open
-      ? [...checkParts(ofBranch), ...reviewParts(pr)]
+      ? reviewParts(pr)
       : [
           {
             type: "text" as const,
             text: look.text,
             tone: look.tone,
+            size: "xs" as const,
             strong: true,
           },
         ]),
     { type: "spacer" },
-    // Other open ones: "+3" beside a pull request's icon — short, so the
-    // review's word keeps its room on a narrow card.
-    ...(others > 0
-      ? [
-          {
-            type: "group" as const,
-            gap: 1 as const,
-            align: "center" as const,
-            padding: 1 as const,
-            radius: "pill" as const,
-            background: "subtle" as const,
-            children: [
-              {
-                type: "icon" as const,
-                icon: "git-pull-request" as const,
-                tone: "neutral" as const,
-              },
-              {
-                type: "text" as const,
-                text: `+${others}`,
-                size: "xs" as const,
-                tone: "subtle" as const,
-              },
-            ],
-          },
-        ]
-      : []),
+    // The checks on the right — how many failed of how many.
+    ...(open ? checkParts(ofBranch) : []),
   ];
   return {
     badge: "pull-request",
