@@ -393,38 +393,11 @@
     ],
     "filters": [
       {
-        "id": "pull-request",
-        "title": "Pull request",
-        "icon": "lucide:git-pull-request",
-        "kind": "pull_request",
-        "options": [
-          {
-            "id": "any",
-            "label": "With a pull request"
-          },
-          {
-            "id": "open",
-            "label": "With an open pull request",
-            "when": {
-              "state": ["open", "draft"]
-            }
-          },
-          {
-            "id": "none",
-            "label": "Without a pull request",
-            "absent": true
-          }
-        ],
-        "values": {
-          "field": "url",
-          "label": "#{number} {title}"
-        }
-      },
-      {
         "id": "pr-status",
         "title": "Pull request status",
         "icon": "lucide:git-pull-request",
         "kind": "pull_request",
+        "menu": "main",
         "options": [
           {
             "id": "draft",
@@ -474,10 +447,70 @@
         ]
       },
       {
+        "id": "action-status",
+        "title": "GitHub Actions status",
+        "icon": "lucide:circle-check",
+        "kind": "checks",
+        "menu": "main",
+        "options": [
+          {
+            "id": "success",
+            "label": "Passed",
+            "when": {
+              "state": "success"
+            }
+          },
+          {
+            "id": "failure",
+            "label": "Failed",
+            "when": {
+              "state": "failure"
+            }
+          },
+          {
+            "id": "pending",
+            "label": "Running",
+            "when": {
+              "state": "pending"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pull-request",
+        "title": "Pull request",
+        "icon": "lucide:git-pull-request",
+        "kind": "pull_request",
+        "menu": "main",
+        "options": [
+          {
+            "id": "any",
+            "label": "With a pull request"
+          },
+          {
+            "id": "open",
+            "label": "With an open pull request",
+            "when": {
+              "state": ["open", "draft"]
+            }
+          },
+          {
+            "id": "none",
+            "label": "Without a pull request",
+            "absent": true
+          }
+        ],
+        "values": {
+          "field": "url",
+          "label": "#{number} {title}"
+        }
+      },
+      {
         "id": "branch",
         "title": "Branch",
         "icon": "lucide:git-branch",
         "kind": "branch",
+        "menu": "advanced",
         "options": [
           {
             "id": "any",
@@ -507,44 +540,17 @@
         "title": "GitHub Action",
         "icon": "lucide:play",
         "kind": "checks",
+        "menu": "advanced",
         "values": {
           "field": "runs.name"
         }
-      },
-      {
-        "id": "action-status",
-        "title": "GitHub Actions status",
-        "icon": "lucide:circle-check",
-        "kind": "checks",
-        "options": [
-          {
-            "id": "success",
-            "label": "Passed",
-            "when": {
-              "state": "success"
-            }
-          },
-          {
-            "id": "failure",
-            "label": "Failed",
-            "when": {
-              "state": "failure"
-            }
-          },
-          {
-            "id": "pending",
-            "label": "Running",
-            "when": {
-              "state": "pending"
-            }
-          }
-        ]
       },
       {
         "id": "repository",
         "title": "Repository",
         "icon": "lucide:folder-git-2",
         "kind": "pull_request",
+        "menu": "advanced",
         "values": {
           "field": "repo"
         }
@@ -554,6 +560,7 @@
         "title": "Deployed to",
         "icon": "lucide:rocket",
         "kind": "deployment",
+        "menu": "advanced",
         "values": {
           "field": "environment"
         }
