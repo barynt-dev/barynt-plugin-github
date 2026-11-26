@@ -103,6 +103,45 @@
         },
         "connections": {
           "github": "Allgemein"
+        },
+        "filters": {
+          "pull-request": {
+            "title": "Pull Request",
+            "options": {
+              "any": "Mit Pull Request",
+              "open": "Mit offenem Pull Request",
+              "none": "Ohne Pull Request"
+            }
+          },
+          "pr-status": {
+            "title": "PR-Status",
+            "options": {
+              "draft": "Entwurf",
+              "open": "Offen, noch kein Review",
+              "approved": "Freigegeben",
+              "changes": "Änderungen gewünscht",
+              "merged": "Gemergt",
+              "closed": "Geschlossen"
+            }
+          },
+          "branch": {
+            "title": "Branch",
+            "options": {
+              "any": "Mit Branch",
+              "none": "Ohne Branch"
+            }
+          },
+          "action": "GitHub Action",
+          "action-status": {
+            "title": "GitHub-Actions-Status",
+            "options": {
+              "success": "Bestanden",
+              "failure": "Fehlgeschlagen",
+              "pending": "Läuft"
+            }
+          },
+          "repository": "Repository",
+          "deployment": "Deployt auf"
         }
       },
       "previews": {
@@ -350,6 +389,164 @@
             "on": "deployment.production"
           }
         ]
+      }
+    ],
+    "filters": [
+      {
+        "id": "pull-request",
+        "title": "Pull request",
+        "icon": "lucide:git-pull-request",
+        "kind": "pull_request",
+        "options": [
+          {
+            "id": "any",
+            "label": "With a pull request"
+          },
+          {
+            "id": "open",
+            "label": "With an open pull request",
+            "when": {
+              "state": ["open", "draft"]
+            }
+          },
+          {
+            "id": "none",
+            "label": "Without a pull request",
+            "absent": true
+          }
+        ]
+      },
+      {
+        "id": "pr-status",
+        "title": "Pull request status",
+        "icon": "lucide:git-pull-request",
+        "kind": "pull_request",
+        "options": [
+          {
+            "id": "draft",
+            "label": "Draft",
+            "when": {
+              "state": "draft"
+            }
+          },
+          {
+            "id": "open",
+            "label": "Open, no review yet",
+            "when": {
+              "state": "open",
+              "review": null
+            }
+          },
+          {
+            "id": "approved",
+            "label": "Approved",
+            "when": {
+              "state": "open",
+              "review": "approved"
+            }
+          },
+          {
+            "id": "changes",
+            "label": "Changes requested",
+            "when": {
+              "state": "open",
+              "review": "changes_requested"
+            }
+          },
+          {
+            "id": "merged",
+            "label": "Merged",
+            "when": {
+              "state": "merged"
+            }
+          },
+          {
+            "id": "closed",
+            "label": "Closed",
+            "when": {
+              "state": "closed"
+            }
+          }
+        ]
+      },
+      {
+        "id": "branch",
+        "title": "Branch",
+        "icon": "lucide:git-branch",
+        "kind": "branch",
+        "options": [
+          {
+            "id": "any",
+            "label": "With a branch",
+            "when": {
+              "deleted": false
+            }
+          },
+          {
+            "id": "none",
+            "label": "Without a branch",
+            "absent": true,
+            "when": {
+              "deleted": false
+            }
+          }
+        ]
+      },
+      {
+        "id": "action",
+        "title": "GitHub Action",
+        "icon": "lucide:play",
+        "kind": "checks",
+        "values": {
+          "field": "runs.name"
+        }
+      },
+      {
+        "id": "action-status",
+        "title": "GitHub Actions status",
+        "icon": "lucide:circle-check",
+        "kind": "checks",
+        "options": [
+          {
+            "id": "success",
+            "label": "Passed",
+            "when": {
+              "state": "success"
+            }
+          },
+          {
+            "id": "failure",
+            "label": "Failed",
+            "when": {
+              "state": "failure"
+            }
+          },
+          {
+            "id": "pending",
+            "label": "Running",
+            "when": {
+              "state": "pending"
+            }
+          }
+        ]
+      },
+      {
+        "id": "repository",
+        "title": "Repository",
+        "icon": "lucide:folder-git-2",
+        "kind": "pull_request",
+        "values": {
+          "field": "repo"
+        }
+      },
+      {
+        "id": "deployment",
+        "title": "Deployed to",
+        "icon": "lucide:rocket",
+        "kind": "deployment",
+        "values": {
+          "field": "environment"
+        }
       }
     ]
   },
