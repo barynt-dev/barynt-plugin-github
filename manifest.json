@@ -414,7 +414,11 @@
             "label": "Without a pull request",
             "absent": true
           }
-        ]
+        ],
+        "values": {
+          "field": "url",
+          "label": "#{number} {title}"
+        }
       },
       {
         "id": "pr-status",
@@ -490,7 +494,13 @@
               "deleted": false
             }
           }
-        ]
+        ],
+        "values": {
+          "field": "name",
+          "when": {
+            "deleted": false
+          }
+        }
       },
       {
         "id": "action",
