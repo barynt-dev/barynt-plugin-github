@@ -218,6 +218,8 @@ function pullRequestCard(
         }),
       onOpen: () => openWindow("overview"),
     },
+    // The whole card opens it too.
+    onClick: () => openWindow("overview"),
   });
 }
 
