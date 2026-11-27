@@ -1103,7 +1103,26 @@ export interface LogWindow {
   context?: string;
 }
 
-/** The rarer things to do with a log, in a menu: raw, saved, copied, on
+/** The file a job's log is saved as. */
+const logFileName = (job: { id: number; name: string }) =>
+  `${job.name.replace(/[^\w.-]+/g, "-").replace(/^-|-$/g, "") || "job"}-${job.id}.log`;
+
+/** Saves all of a job's log, as one file — not by steps. */
+function downloadButton(
+  job: { id: number; name: string },
+  logText: string,
+  host: WindowHost,
+): HTMLElement {
+  return button({
+    label: t("downloadLog"),
+    icon: "arrow-down",
+    variant: "secondary",
+    size: "sm",
+    onClick: () => host.download({ name: logFileName(job), text: logText }),
+  });
+}
+
+/** The rarer things to do with a log, in a menu: raw, copied, on
  *  GitHub. */
 function logMenu(
   api: Api,
@@ -1112,7 +1131,6 @@ function logMenu(
   logText: string,
   host: WindowHost,
 ): HTMLElement {
-  const fileName = `${job.name.replace(/[^\w.-]+/g, "-").replace(/^-|-$/g, "") || "job"}-${job.id}.log`;
   return menuButton({
     label: t("logActions"),
     items: [
@@ -1128,11 +1146,6 @@ function logMenu(
       },
       ...(logText
         ? [
-            {
-              label: t("downloadLog"),
-              icon: "arrow-down" as const,
-              onClick: () => host.download({ name: fileName, text: logText }),
-            },
             {
               label: t("copyLog"),
               icon: "copy" as const,
@@ -1206,23 +1219,29 @@ function jobHead(
   return head;
 }
 
-/** A job's log by its steps — or, without them, all of it. */
+/** A job's log by its steps — or, without them (GitHub gave none), all
+ *  of it. The whole of it is the full log's window. */
 function jobLogView(log: string, job: Job, label: string): HTMLElement {
-  return job.steps.length
-    ? logView({
-        sections: stepSections(log, job.steps),
-        fold: true,
-        tools: true,
-        maxHeight: 420,
-        label,
-      })
-    : logView({
-        lines: logLines(log),
-        fold: true,
-        tools: true,
-        maxHeight: 420,
-        label,
-      });
+  return logView({
+    ...(job.steps.length
+      ? { sections: stepSections(log, job.steps) }
+      : { lines: logLines(log) }),
+    fold: true,
+    tools: true,
+    maxHeight: 420,
+    label,
+  });
+}
+
+/** All of a job's log in one, as it came — no steps. */
+function wholeLogView(log: string, label: string): HTMLElement {
+  return logView({
+    lines: logLines(log),
+    fold: true,
+    tools: true,
+    maxHeight: "none",
+    label,
+  });
 }
 
 /** One job: which one, where; its log by steps once it has one — its
@@ -1271,6 +1290,7 @@ export async function renderLog(
             }),
           ]
         : []),
+      ...(logText ? [downloadButton(job, logText, host)] : []),
       logMenu(api, d.repo, job, logText, host),
     ];
     headSlot.replaceChildren(jobHead(job, where, d.workflow ?? null, actions));
@@ -1312,8 +1332,8 @@ export async function renderLog(
     );
 }
 
-/** A job's whole log, in a wide window of its own: by its steps, all of
- *  them there to open; raw, saved, copied. */
+/** A job's whole log, in a wide window of its own: every line as it
+ *  came, not split by steps; raw, saved, copied. */
 export async function renderFullLog(
   api: Api,
   el: HTMLElement,
@@ -1336,26 +1356,13 @@ export async function renderFullLog(
     steps: [],
   };
   const logText = "text" in log ? log.text : "";
-  const actions = [logMenu(api, view.repo, shown, logText, host)];
+  const actions = [
+    ...(logText ? [downloadButton(shown, logText, host)] : []),
+    logMenu(api, view.repo, shown, logText, host),
+  ];
   const body = stack(
     jobHead(shown, view.context ?? null, null, actions),
-    "text" in log
-      ? shown.steps.length
-        ? logView({
-            sections: stepSections(log.text, shown.steps),
-            fold: true,
-            tools: true,
-            maxHeight: "none",
-            label: view.name,
-          })
-        : logView({
-            lines: logLines(log.text),
-            fold: true,
-            tools: true,
-            maxHeight: "none",
-            label: view.name,
-          })
-      : logMissing(log.missing),
+    "text" in log ? wholeLogView(log.text, view.name) : logMissing(log.missing),
   );
   body.style.gap = "0.75rem";
   body.style.padding = "0.25rem 0";
