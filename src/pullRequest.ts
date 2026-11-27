@@ -4,6 +4,7 @@ import {
   button,
   diffStat,
   keyValue,
+  link,
   list,
   notice,
   row,
@@ -57,6 +58,25 @@ const RUN_TONE = {
   running: "info",
   warning: "warning",
 } as const;
+
+/** A branch's page on GitHub — `ada/web-42` keeps its slashes. */
+const branchUrl = (repo: string, branch: string) =>
+  `https://github.com/${repo}/tree/${branch.split("/").map(encodeURIComponent).join("/")}`;
+
+/** Branches as links, one to the next: `web-42 → main`. */
+function branchLinks(repo: string, branches: (string | null)[]): HTMLElement {
+  const names = branches.filter((b): b is string => Boolean(b));
+  const line = row(
+    ...names.flatMap((name, i) => [
+      ...(i > 0 ? [text({ text: "→", tone: "subtle", size: "sm" })] : []),
+      link({ text: name, href: branchUrl(repo, name) }),
+    ]),
+  );
+  line.style.alignItems = "center";
+  line.style.flexWrap = "wrap";
+  line.style.gap = "0.375rem";
+  return line;
+}
 
 /** How long a run took, or runs. */
 function runDuration(run: WorkflowRun): string {
@@ -127,11 +147,8 @@ export async function renderPullRequest(
           },
           {
             label: t("branch"),
-            value: text({
-              text: [pr.branch, pr.base].filter(Boolean).join(" → "),
-              mono: true,
-              size: "sm",
-            }),
+            // Each branch to its page on GitHub.
+            value: branchLinks(pr.repo, [pr.branch, pr.base]),
           },
           ...(pr.author
             ? [{ label: t("prAuthor"), value: reviewer(pr.author).name }]
@@ -147,7 +164,13 @@ export async function renderPullRequest(
                 },
               ]
             : []),
-          { label: t("repository"), value: pr.repo },
+          {
+            label: t("repository"),
+            value: link({
+              text: pr.repo,
+              href: `https://github.com/${pr.repo}`,
+            }),
+          },
           { label: t("prUpdated"), value: ago(pr.at) },
         ],
       }),
