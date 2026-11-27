@@ -79,7 +79,7 @@ const STEP_ICON = {
 
 /** A run's state in a word, in its tone — a cancelled or skipped one
  *  says so. */
-function runLook(run: WorkflowRun): {
+export function runLook(run: WorkflowRun): {
   text: string;
   tone: "success" | "danger" | "warning" | "info" | "neutral";
 } {
@@ -286,6 +286,7 @@ export async function renderRun(
   el: HTMLElement,
   view: RunWindow,
   host: WindowHost,
+  onBack?: () => void,
 ): Promise<void> {
   el.replaceChildren(skeleton({ lines: 4 }));
   const run = await getRun(api, view.repo, view.runId);
@@ -295,7 +296,7 @@ export async function renderRun(
     );
     return;
   }
-  const again = () => void renderRun(api, el, view, host);
+  const again = () => void renderRun(api, el, view, host, onBack);
   const step = runStep(run);
   const look = runLook(run);
   const title = row(
@@ -375,7 +376,24 @@ export async function renderRun(
   const foot = row(...actions);
   foot.style.justifyContent = "flex-end";
   foot.style.flexWrap = "wrap";
-  const body = stack(head, jobs, ...(actions.length ? [foot] : []));
+  const body = stack(
+    ...(onBack
+      ? [
+          row(
+            button({
+              label: t("back"),
+              icon: "chevron-left",
+              variant: "ghost",
+              size: "sm",
+              onClick: onBack,
+            }),
+          ),
+        ]
+      : []),
+    head,
+    jobs,
+    ...(actions.length ? [foot] : []),
+  );
   body.style.gap = "0.875rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);

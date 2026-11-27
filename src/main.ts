@@ -24,6 +24,7 @@ import {
 import { sortEntries } from "./entries";
 import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
+import { type PullRequestWindow, renderPullRequest } from "./pullRequest";
 import { pullRequestRow } from "./row";
 import { renderDeploySettings } from "./settingsPage";
 import { type RunWindow, renderRun, renderStart } from "./workflows";
@@ -77,6 +78,16 @@ export default class GitHub extends Plugin {
           openModal: (options: ModalOptions) => this.openModal(options),
           download: (file: DownloadFile) => this.download(file),
         };
+        if (modal?.view === "pull-request") {
+          await renderPullRequest(
+            this.api,
+            el,
+            issueId,
+            modal.data as PullRequestWindow,
+            host,
+          );
+          return;
+        }
         if (modal?.view === "run") {
           await renderRun(this.api, el, modal.data as RunWindow, host);
           return;

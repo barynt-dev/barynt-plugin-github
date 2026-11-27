@@ -38,6 +38,7 @@ import {
 import type { PullRequest } from "./entries";
 import { branchSettings, canReach, proposedName } from "./github";
 import { t } from "./i18n";
+import type { PullRequestTab } from "./pullRequest";
 import { prLook } from "./row";
 import { ago } from "./time";
 import { workflowParts } from "./workflows";
@@ -50,7 +51,7 @@ import { workflowParts } from "./workflows";
 type Api = Plugin["api"];
 
 /** Who reviewed, from GitHub — or why it can't say. */
-async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
+export async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
   try {
     const res = await api.net.fetch(
       `https://api.github.com/repos/${pr.repo}/pulls/${pr.number}/reviews?per_page=100`,
@@ -110,7 +111,7 @@ async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
   }
 }
 
-const NEXT_TONE = {
+export const NEXT_TONE = {
   checksFailed: "danger",
   changesRequested: "warning",
   draft: "neutral",
@@ -120,7 +121,7 @@ const NEXT_TONE = {
 } as const;
 
 /** The next thing to do about it, in words. */
-function nextText(next: NextStep): string {
+export function nextText(next: NextStep): string {
   if (next.kind === "checksFailed")
     return t("nextChecksFailed", { count: next.count });
   return t(`next_${next.kind}`);
@@ -133,46 +134,23 @@ function nextText(next: NextStep): string {
  * reviews load from GitHub the first time it opens.
  */
 function pullRequestCard(
-  api: Api,
   pr: PullRequest,
   steps: { label: string; state: StepState }[],
   withRepo: boolean,
+  openModal: (options: ModalOptions) => void,
 ): HTMLElement {
   const open = pr.state === "open" || pr.state === "draft";
   const look = prLook(pr);
   const title = `${withRepo ? pr.repo : ""}#${pr.number} ${withoutIssueKey(pr.title)}`;
   const progress = open ? prProgress(pr, steps) : null;
-  const who = stack();
-  let loaded = false;
-  const details: HTMLElement[] = [
-    text({
-      text: [pr.author, ago(pr.at)].filter(Boolean).join(" · "),
-      tone: "subtle",
-      size: "xs",
-    }),
-    ...(steps.length > 0
-      ? [
-          text({
-            text: t("checksTitle"),
-            size: "xs",
-            weight: "semibold",
-            tone: "subtle",
-          }),
-          stepList({ steps }),
-        ]
-      : []),
-    ...(open
-      ? [
-          text({
-            text: t("reviewsTitle"),
-            size: "xs",
-            weight: "semibold",
-            tone: "subtle",
-          }),
-          who,
-        ]
-      : []),
-  ];
+  // The pull request's own window: overview, workflows, reviews, commits.
+  const openWindow = (tab: PullRequestTab) =>
+    openModal({
+      view: "pull-request",
+      title: `#${pr.number} ${withoutIssueKey(pr.title)}`.slice(0, 120),
+      size: "lg",
+      data: { repo: pr.repo, number: pr.number, tab },
+    });
   const where = (next: NextStep) =>
     pr.url && next.kind === "checksFailed" ? `${pr.url}/checks` : pr.url;
   return card({
@@ -204,16 +182,30 @@ function pullRequestCard(
             text: nextText(progress.next),
             tone: NEXT_TONE[progress.next.kind],
             compact: true,
-            ...(where(progress.next) && {
-              action: link({
-                text:
-                  progress.next.kind === "readyToMerge" ||
-                  progress.next.kind === "draft"
-                    ? t("onGitHub")
-                    : t("look"),
-                href: where(progress.next) as string,
-              }),
-            }),
+            // Checks: their window here; the rest — merging, a draft — on
+            // GitHub.
+            ...(progress.next.kind === "checksFailed" ||
+            progress.next.kind === "checksRunning"
+              ? {
+                  action: button({
+                    label: t("look"),
+                    variant: "ghost",
+                    size: "sm",
+                    onClick: () => openWindow("workflows"),
+                  }),
+                }
+              : where(progress.next)
+                ? {
+                    action: link({
+                      text:
+                        progress.next.kind === "readyToMerge" ||
+                        progress.next.kind === "draft"
+                          ? t("onGitHub")
+                          : t("look"),
+                      href: where(progress.next) as string,
+                    }),
+                  }
+                : {}),
           }),
         ]
       : // Merged or closed: where it ended, no way ahead.
@@ -224,15 +216,7 @@ function pullRequestCard(
         pr.deletions !== null && {
           aside: [diffStat({ added: pr.additions, removed: pr.deletions })],
         }),
-      content: details,
-      onToggle: (isOpen) => {
-        if (!isOpen || loaded || !open) return;
-        loaded = true;
-        who.replaceChildren(
-          text({ text: t("loadingReviews"), tone: "subtle", size: "sm" }),
-        );
-        void reviews(api, pr).then((el) => who.replaceChildren(el));
-      },
+      onOpen: () => openWindow("overview"),
     },
   });
 }
@@ -547,7 +531,7 @@ export async function renderDevelopment(
   // The repository only where there's more than one.
   const withRepo = new Set(dev.pullRequests.map((p) => p.pr.repo)).size > 1;
   const prCard = ({ pr, steps }: (typeof dev.pullRequests)[number]) =>
-    pullRequestCard(api, pr, steps, withRepo);
+    pullRequestCard(pr, steps, withRepo, openModal);
   // Merged or closed: a small card — number, title, how it ended and a
   // way to GitHub; no way ahead, no details.
   const doneList = (prs: typeof dev.pullRequests): HTMLElement[] =>

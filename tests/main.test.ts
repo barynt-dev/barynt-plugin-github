@@ -64,7 +64,7 @@ describe("the GitHub plugin", () => {
     await unload();
   });
 
-  it("draws the Development panel, reviews with the person's token", async () => {
+  it("draws the Development panel; Details opens the pull request's window, reviews with the person's token", async () => {
     const pr = {
       kind: "pull_request",
       repo: "acme/web",
@@ -80,7 +80,7 @@ describe("the GitHub plugin", () => {
       deletions: 34,
       at: "2026-11-19T10:00:00Z",
     };
-    const panel = (net: () => unknown) => {
+    const frame = (net: () => unknown, modal?: unknown) => {
       const root = document.createElement("div");
       return {
         root,
@@ -89,6 +89,7 @@ describe("the GitHub plugin", () => {
           context: {
             slot: { kind: "issuePanel", id: "development" },
             issueId: "i-1",
+            ...(modal ? { modal: modal as never } : {}),
           },
           handlers: {
             "issueData.list": () => ({
@@ -100,49 +101,63 @@ describe("the GitHub plugin", () => {
       };
     };
     const settle = () => new Promise((r) => setTimeout(r, 0));
-    // Who reviewed loads when its details open.
-    const openDetails = (root: { querySelector: (s: string) => unknown }) => {
-      const details = root.querySelector("details.bui-card-more") as {
-        open: boolean;
-        dispatchEvent: (e: unknown) => void;
-        ownerDocument: { defaultView: { Event: new (t: string) => unknown } };
-      };
-      details.open = true;
-      details.dispatchEvent(
-        new details.ownerDocument.defaultView.Event("toggle"),
-      );
-    };
-
-    const withToken = panel(() => ({
+    const reviewsOk = () => ({
       status: 200,
       headers: {},
       text: JSON.stringify([{ user: { login: "tom" }, state: "APPROVED" }]),
-    }));
-    await loadPlugin(GitHub, withToken.host);
+    });
+
+    const panel = frame(reviewsOk);
+    await loadPlugin(GitHub, panel.host);
     await settle();
     // One repository: the number alone.
-    expect(withToken.root.textContent).toContain("#42 Keep the cookie");
-    expect(withToken.root.textContent).toContain("Waiting for a review");
-    expect(withToken.root.textContent).not.toContain("tom");
-    openDetails(withToken.root);
+    expect(panel.root.textContent).toContain("#42 Keep the cookie");
+    expect(panel.root.textContent).toContain("Waiting for a review");
+    // The card stays short: Details opens the pull request's window.
+    (
+      panel.root.querySelector("button.bui-card-more") as unknown as {
+        click(): void;
+      }
+    ).click();
+    expect(panel.host.openedModals[0]).toMatchObject({
+      view: "pull-request",
+      size: "lg",
+      data: { repo: "acme/web", number: 42, tab: "overview" },
+    });
+
+    // Its Reviews tab, with the person's token.
+    const window = frame(reviewsOk, {
+      view: "pull-request",
+      data: { repo: "acme/web", number: 42, tab: "reviews" },
+    });
+    await loadPlugin(GitHub, window.host);
     await settle();
-    expect(withToken.root.textContent).toContain("tom");
+    await settle();
+    expect(window.root.textContent).toContain("tom");
     expect(
-      withToken.host.calls.find((c) => c.method === "net.fetch"),
+      window.host.calls.find(
+        (c) =>
+          c.method === "net.fetch" &&
+          String((c.params as { url: string }).url).includes("/reviews"),
+      ),
     ).toMatchObject({
-      method: "net.fetch",
       params: {
         url: "https://api.github.com/repos/acme/web/pulls/42/reviews?per_page=100",
       },
     });
 
-    const noToken = panel(() => {
-      // As Barynt refuses a request without the person's token.
-      throw new Error("credential_missing");
-    });
+    const noToken = frame(
+      () => {
+        // As Barynt refuses a request without the person's token.
+        throw new Error("credential_missing");
+      },
+      {
+        view: "pull-request",
+        data: { repo: "acme/web", number: 42, tab: "reviews" },
+      },
+    );
     await loadPlugin(GitHub, noToken.host);
     await settle();
-    openDetails(noToken.root);
     await settle();
     expect(noToken.root.textContent).toContain("or keep your own token");
   });
