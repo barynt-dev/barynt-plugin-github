@@ -77,6 +77,7 @@ export default class GitHub extends Plugin {
             this.openSettings(level),
           openModal: (options: ModalOptions) => this.openModal(options),
           download: (file: DownloadFile) => this.download(file),
+          setBack: (onBack: (() => void) | null) => this.setBack(onBack),
         };
         if (modal?.view === "pull-request") {
           await renderPullRequest(

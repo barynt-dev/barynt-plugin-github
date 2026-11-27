@@ -436,6 +436,20 @@ export interface WindowHost {
   openSettings(level: "personal" | "project"): void;
   openModal(options: ModalOptions): void;
   download(file: DownloadFile): void;
+  /** The back arrow in the window's head — `null`: none. */
+  setBack(onBack: (() => void) | null): void;
+}
+
+/** Shows the window's back arrow for `onBack` — taken away once used. */
+export function backTo(host: WindowHost, onBack: (() => void) | undefined) {
+  host.setBack(
+    onBack
+      ? () => {
+          host.setBack(null);
+          onBack();
+        }
+      : null,
+  );
 }
 
 function stateIcon(state: DeploymentRun["state"]) {
@@ -471,6 +485,7 @@ export async function renderStage(
     el.replaceChildren(text({ text: t("deployGone"), tone: "subtle" }));
     return;
   }
+  host.setBack(null);
   const parts = partsOf(station);
   const nav = navList({
     items: parts.map((p) => ({
@@ -507,15 +522,6 @@ function version(
   const message = commits.find((c) => c.sha.startsWith(short))?.message;
   return message ? `${short} · ${message}` : short;
 }
-
-const backButton = (onBack: () => void) =>
-  button({
-    label: t("back"),
-    icon: "chevron-left",
-    variant: "ghost",
-    size: "sm",
-    onClick: onBack,
-  });
 
 const footOf = (actions: HTMLElement[]) => {
   const foot = row(...actions);
@@ -593,7 +599,8 @@ export async function renderDeployment(
     ],
   });
 
-  const body = stack(...(onBack ? [backButton(onBack)] : []), details);
+  backTo(host, onBack);
+  const body = stack(details);
   body.style.gap = "0.875rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);
@@ -1271,10 +1278,10 @@ export async function renderLog(
 ): Promise<void> {
   const state = jobStep(job.status, job.conclusion);
   const where = d.workflowFile ?? d.environment;
-  const backRow = row(backButton(back));
+  backTo(host, back);
   const headSlot = stack(jobHead(job, where, d.workflow ?? null));
   const logSlot = stack(skeleton({ lines: 4 }));
-  const body = stack(backRow, headSlot, logSlot);
+  const body = stack(headSlot, logSlot);
   body.style.gap = "0.75rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);

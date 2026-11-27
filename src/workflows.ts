@@ -17,7 +17,13 @@ import {
   toast,
   toggle,
 } from "@barynt/plugin-sdk/ui";
-import { configOf, jobStep, jobsBox, type WindowHost } from "./deployments";
+import {
+  backTo,
+  configOf,
+  jobStep,
+  jobsBox,
+  type WindowHost,
+} from "./deployments";
 import { reviewer } from "./development";
 import type { Deployment } from "./entries";
 import {
@@ -297,6 +303,7 @@ export async function renderRun(
     return;
   }
   const again = () => void renderRun(api, el, view, host, onBack);
+  backTo(host, onBack);
   const step = runStep(run);
   const look = runLook(run);
   const title = row(
@@ -376,24 +383,7 @@ export async function renderRun(
   const foot = row(...actions);
   foot.style.justifyContent = "flex-end";
   foot.style.flexWrap = "wrap";
-  const body = stack(
-    ...(onBack
-      ? [
-          row(
-            button({
-              label: t("back"),
-              icon: "chevron-left",
-              variant: "ghost",
-              size: "sm",
-              onClick: onBack,
-            }),
-          ),
-        ]
-      : []),
-    head,
-    jobs,
-    ...(actions.length ? [foot] : []),
-  );
+  const body = stack(head, jobs, ...(actions.length ? [foot] : []));
   body.style.gap = "0.875rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);

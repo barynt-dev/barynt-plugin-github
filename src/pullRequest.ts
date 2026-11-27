@@ -172,7 +172,8 @@ export async function renderPullRequest(
   // ─── Workflows ─────────────────────────────────────────────────────────
   const workflows = () => {
     const slot = stack();
-    const drawList = () =>
+    const drawList = () => {
+      host.setBack(null);
       slot.replaceChildren(
         runs.length
           ? list({
@@ -203,6 +204,7 @@ export async function renderPullRequest(
             })
           : text({ text: t("noWorkflowRuns"), tone: "subtle", size: "sm" }),
       );
+    };
     drawList();
     return slot;
   };
