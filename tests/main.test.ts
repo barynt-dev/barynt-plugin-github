@@ -53,8 +53,10 @@ describe("the GitHub plugin", () => {
       { id: "i-1", ref: "WEB-1" },
       { id: "i-2", ref: "WEB-2" },
     ]);
+    // One for the batch — and the project's stages for deployments.
     expect(host.calls).toEqual([
       { method: "issueData.list", params: { issueIds: ["i-1", "i-2"] } },
+      { method: "settings.get", params: {} },
     ]);
     expect(Object.keys(badges)).toEqual(["i-1"]);
     expect(badges["i-1"][0]).toMatchObject({ text: "#42 Approved" });
@@ -262,7 +264,7 @@ describe("the GitHub plugin", () => {
     const stops = [...root.querySelectorAll(".bui-station")];
     expect(
       stops.map((s) => s.querySelector(".bui-station-label")?.textContent),
-    ).toEqual(["staging", "production"]);
+    ).toEqual(["Staging", "Production"]);
     expect(stops.map((s) => (s as HTMLElement).dataset.state)).toEqual([
       "success",
       "pending",
@@ -274,7 +276,7 @@ describe("the GitHub plugin", () => {
     expect(host.openedModals).toEqual([
       {
         view: "deployment",
-        title: "staging",
+        title: "Staging",
         data: { repo: "acme/web", environment: "staging" },
       },
     ]);
@@ -296,7 +298,7 @@ describe("the GitHub plugin", () => {
     expect(inModal.textContent).toContain("Deploy · ");
     expect(
       [...inModal.querySelectorAll(".bui-button")].map((b) => b.textContent),
-    ).toEqual(["Deploy again", "Log", "Open app"]);
+    ).toEqual(["Deploy again", "On GitHub", "Open app"]);
   });
 
   it("with nothing linked, says where to start", async () => {

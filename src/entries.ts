@@ -54,8 +54,16 @@ export interface Checks {
 /** One deployment to an environment — the latest, or one before it. */
 export interface DeploymentRun {
   id?: number | null;
-  /** `inactive`: replaced by a newer one. */
-  state: "success" | "failure" | "pending" | "inactive";
+  /** `pending` queued, `running`, `waiting` for an approval, `cancelled`,
+   *  `inactive` replaced by a newer one. */
+  state:
+    | "success"
+    | "failure"
+    | "pending"
+    | "running"
+    | "waiting"
+    | "cancelled"
+    | "inactive";
   ref: string | null;
   sha: string | null;
   /** The environment's address, else the log's. */
@@ -72,6 +80,8 @@ export interface Deployment extends DeploymentRun {
   repo: string;
   environment: string;
   production: boolean;
+  /** A workflow's run counted as a deployment: its file. */
+  workflowFile?: string;
   /** The ones before it, newest first. */
   history?: DeploymentRun[];
 }

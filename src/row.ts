@@ -9,6 +9,15 @@ import { inOrder } from "./development";
 import type { CheckState, Checks, Deployment, PullRequest } from "./entries";
 import { sortEntries } from "./entries";
 import { t } from "./i18n";
+import {
+  type DeployConfig,
+  OTHER,
+  partsOf,
+  readConfig,
+  type StationState,
+  stations,
+  worst,
+} from "./stages";
 
 // The pull request's row on a board card (BARY-228): its number, where it
 // stands, its checks as bars and the overall result. With several, the
@@ -93,26 +102,38 @@ function checkParts(checks: Checks | undefined): RowPart[] {
   ];
 }
 
-const DEPLOY_STEP = {
-  success: "success",
+const STATION_STEP = {
   failure: "danger",
-  pending: "running",
-  inactive: "pending",
-} as const satisfies Record<Deployment["state"], StepState>;
+  waiting: "warning",
+  running: "running",
+  success: "success",
+  idle: "pending",
+} as const satisfies Record<StationState, StepState>;
 
-/** Where it runs: a rocket and a bar per environment, production last —
- *  in the tone of the furthest one that's live, else of the latest. */
-function deploymentParts(deployments: Deployment[]): RowPart[] {
-  if (deployments.length === 0) return [];
-  const ordered = inOrder(deployments).slice(-4);
-  const steps = ordered.map((d) => DEPLOY_STEP[d.state]);
-  const tone: BadgeTone = ordered.some((d) => d.state === "failure")
-    ? "danger"
-    : ordered.some((d) => d.state === "pending")
-      ? "info"
-      : ordered.at(-1)?.state === "success"
-        ? "success"
-        : "neutral";
+/** Where it runs: a rocket and a bar per stage it reached, in the
+ *  project's order — in the tone of the worst. Waiting for an approval is
+ *  the one thing that gets a word: it needs someone. */
+function deploymentParts(
+  deployments: Deployment[],
+  config: DeployConfig,
+): RowPart[] {
+  const reached = stations(deployments, config).filter(
+    (s) => s.reached && s.stage.id !== OTHER,
+  );
+  if (reached.length === 0) return [];
+  const states = reached.map((s) => worst(partsOf(s).map((p) => p.state)));
+  const steps = states.slice(-5).map((st) => STATION_STEP[st]);
+  const all = worst(reached.flatMap((s) => partsOf(s).map((p) => p.state)));
+  const tone: BadgeTone =
+    all === "failure"
+      ? "danger"
+      : all === "waiting"
+        ? "warning"
+        : all === "running"
+          ? "info"
+          : all === "success"
+            ? "success"
+            : "neutral";
   return [
     {
       type: "group",
@@ -120,6 +141,17 @@ function deploymentParts(deployments: Deployment[]): RowPart[] {
       align: "center",
       children: [
         { type: "icon", icon: "rocket", tone },
+        ...(all === "waiting"
+          ? [
+              {
+                type: "text" as const,
+                text: t("rowApproval"),
+                tone: "warning" as const,
+                size: "xs" as const,
+                strong: true,
+              },
+            ]
+          : []),
         { type: "steps", steps },
       ],
     },
@@ -170,10 +202,11 @@ function reviewParts(pr: PullRequest): RowPart[] {
 /** The row for one issue's entries — `null` without a pull request. */
 export function pullRequestRow(
   raw: { key: string; value: unknown }[],
+  config: DeployConfig = readConfig(undefined),
 ): Badge | null {
   const { pullRequests, checks, deployments } = sortEntries(raw);
   const pr = shownPullRequest(pullRequests);
-  if (!pr) return deploymentRow(deployments);
+  if (!pr) return deploymentRow(deployments, config);
   const look = prLook(pr);
   const open = pr.state === "open" || pr.state === "draft";
   const ofBranch = checks.find(
@@ -217,7 +250,7 @@ export function pullRequestRow(
     ...(open && ofBranch?.runs.length && deployments.length
       ? [{ type: "divider" as const }]
       : []),
-    ...deploymentParts(deployments),
+    ...deploymentParts(deployments, config),
   ];
   return {
     badge: "pull-request",
@@ -235,8 +268,11 @@ export function pullRequestRow(
 
 /** Without a pull request, deployed all the same (a commit of `main`
  *  naming it): just where it runs. */
-function deploymentRow(deployments: Deployment[]): Badge | null {
-  const parts = deploymentParts(deployments);
+function deploymentRow(
+  deployments: Deployment[],
+  config: DeployConfig,
+): Badge | null {
+  const parts = deploymentParts(deployments, config);
   if (parts.length === 0) return null;
   const latest = inOrder(deployments).at(-1);
   return {

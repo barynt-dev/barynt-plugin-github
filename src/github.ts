@@ -20,12 +20,17 @@ export class BranchError extends Error {}
 async function github<T>(
   api: Api,
   path: string,
-  init: { method?: "GET" | "POST" | "DELETE"; body?: unknown } = {},
+  init: {
+    method?: "GET" | "POST" | "DELETE";
+    body?: unknown;
+    asPerson?: boolean;
+  } = {},
 ): Promise<{ status: number; data: T | null }> {
   const res = await api.net.fetch(`${GITHUB}${path}`, {
     method: init.method ?? "GET",
     headers: JSON_HEADERS,
     ...(init.body !== undefined && { body: JSON.stringify(init.body) }),
+    ...(init.asPerson && { as: "person" as const }),
   });
   let data: T | null = null;
   try {
@@ -199,23 +204,25 @@ export async function rerunWorkflow(
 export async function recentEnvironments(
   api: Api,
   repo: string,
-): Promise<{ environment: string; production: boolean }[]> {
+): Promise<{ environment: string; production: boolean; at: string | null }[]> {
   const res = await github<
-    { environment?: string; production_environment?: boolean }[]
-  >(api, `/repos/${repo}/deployments?per_page=50`).catch(() => null);
+    {
+      environment?: string;
+      production_environment?: boolean;
+      created_at?: string;
+    }[]
+  >(api, `/repos/${repo}/deployments?per_page=100`).catch(() => null);
   if (res?.status !== 200 || !Array.isArray(res.data)) return [];
-  const seen = new Map<string, boolean>();
+  const seen = new Map<string, { production: boolean; at: string | null }>();
   for (const d of res.data)
     if (typeof d.environment === "string" && !seen.has(d.environment))
-      seen.set(
-        d.environment,
-        d.production_environment ??
+      seen.set(d.environment, {
+        production:
+          d.production_environment ??
           d.environment.toLowerCase() === "production",
-      );
-  return [...seen].map(([environment, production]) => ({
-    environment,
-    production,
-  }));
+        at: d.created_at ?? null,
+      });
+  return [...seen].map(([environment, v]) => ({ environment, ...v }));
 }
 
 /** Git's rules for a branch's name, the ones a person runs into. */
@@ -351,4 +358,208 @@ export async function canReach(api: Api, repo: string): Promise<boolean> {
     if (error instanceof BaryntError) return false;
     throw error;
   }
+}
+
+// ─── A run's jobs, logs and approvals (BARY-238) ─────────────────────────────
+
+export interface Job {
+  id: number;
+  name: string;
+  status: string;
+  conclusion: string | null;
+  url: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  steps: {
+    name: string;
+    number: number;
+    status: string;
+    conclusion: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+  }[];
+}
+
+/** A workflow run's jobs, as GitHub lists them — `null` when it can't. */
+export async function runJobs(
+  api: Api,
+  repo: string,
+  runId: number,
+): Promise<Job[] | null> {
+  type Raw = {
+    id: number;
+    name?: string;
+    status?: string;
+    conclusion?: string | null;
+    html_url?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+    steps?: {
+      name?: string;
+      number?: number;
+      status?: string;
+      conclusion?: string | null;
+      started_at?: string | null;
+      completed_at?: string | null;
+    }[];
+  };
+  const res = await github<{ jobs?: Raw[] }>(
+    api,
+    `/repos/${repo}/actions/runs/${runId}/jobs?per_page=100&filter=latest`,
+  ).catch(() => null);
+  if (res?.status !== 200) return null;
+  return (res.data?.jobs ?? []).map((j) => ({
+    id: j.id,
+    name: j.name ?? "job",
+    status: j.status ?? "queued",
+    conclusion: j.conclusion ?? null,
+    url: j.html_url ?? null,
+    startedAt: j.started_at ?? null,
+    completedAt: j.completed_at ?? null,
+    steps: (j.steps ?? []).map((st) => ({
+      name: st.name ?? "",
+      number: st.number ?? 0,
+      status: st.status ?? "queued",
+      conclusion: st.conclusion ?? null,
+      startedAt: st.started_at ?? null,
+      completedAt: st.completed_at ?? null,
+    })),
+  }));
+}
+
+/** A job's log as text — `null` while there's none yet (it runs) or no
+ *  more (GitHub keeps them 90 days). GitHub hands it to its storage. */
+export async function jobLog(
+  api: Api,
+  repo: string,
+  jobId: number,
+): Promise<{ text: string } | { missing: "running" | "gone" | "denied" }> {
+  const res = await api.net
+    .fetch(`${GITHUB}/repos/${repo}/actions/jobs/${jobId}/logs`, {
+      headers: { Accept: "application/vnd.github+json" },
+      follow: true,
+    })
+    .catch(() => null);
+  if (!res) return { missing: "denied" };
+  if (res.status === 200) return { text: res.text };
+  if (res.status === 404) return { missing: "running" };
+  if (res.status === 410) return { missing: "gone" };
+  return { missing: "denied" };
+}
+
+export interface PendingDeployment {
+  environmentId: number;
+  environment: string;
+  canApprove: boolean;
+  reviewers: string[];
+}
+
+/** What a run waits for, asked as the person — whether they may approve.
+ *  `null` when they can't be asked as (no GitHub account of their own). */
+export async function pendingDeployments(
+  api: Api,
+  repo: string,
+  runId: number,
+): Promise<PendingDeployment[] | null> {
+  const res = await github<
+    {
+      environment?: { id?: number; name?: string };
+      current_user_can_approve?: boolean;
+      reviewers?: {
+        type?: string;
+        reviewer?: { login?: string; name?: string; slug?: string };
+      }[];
+    }[]
+  >(api, `/repos/${repo}/actions/runs/${runId}/pending_deployments`, {
+    asPerson: true,
+  }).catch(() => null);
+  if (res?.status !== 200 || !Array.isArray(res.data)) return null;
+  return res.data.flatMap((p) =>
+    typeof p.environment?.id === "number"
+      ? [
+          {
+            environmentId: p.environment.id,
+            environment: p.environment.name ?? "",
+            canApprove: p.current_user_can_approve === true,
+            reviewers: (p.reviewers ?? []).map((r) =>
+              r.type === "Team"
+                ? `@${r.reviewer?.slug ?? r.reviewer?.name ?? "team"}`
+                : (r.reviewer?.login ?? "?"),
+            ),
+          },
+        ]
+      : [],
+  );
+}
+
+/** Approves or rejects what a run waits for, as the person. */
+export async function reviewDeployments(
+  api: Api,
+  repo: string,
+  runId: number,
+  environmentIds: number[],
+  state: "approved" | "rejected",
+  comment: string,
+): Promise<void> {
+  const res = await github(
+    api,
+    `/repos/${repo}/actions/runs/${runId}/pending_deployments`,
+    {
+      method: "POST",
+      body: { environment_ids: environmentIds, state, comment },
+      asPerson: true,
+    },
+  );
+  if (res.status === 200) return;
+  throw new BranchError(
+    res.status === 403 || res.status === 422
+      ? t("approveNotAllowed")
+      : t("answered", { status: res.status }),
+  );
+}
+
+/** Runs a run's failed jobs again, or one job. */
+export async function rerunFailed(
+  api: Api,
+  repo: string,
+  target: { runId: number } | { jobId: number },
+): Promise<void> {
+  const path =
+    "runId" in target
+      ? `/repos/${repo}/actions/runs/${target.runId}/rerun-failed-jobs`
+      : `/repos/${repo}/actions/jobs/${target.jobId}/rerun`;
+  const res = await github(api, path, { method: "POST" });
+  if (res.status === 201) return;
+  throw new BranchError(
+    res.status === 403
+      ? t("workflowNoRight")
+      : t("answered", { status: res.status }),
+  );
+}
+
+/** A repository's workflows: their files and names. */
+export async function repoWorkflows(
+  api: Api,
+  repo: string,
+): Promise<{ file: string; name: string; updatedAt: string | null }[]> {
+  const res = await github<{
+    workflows?: {
+      path?: string;
+      name?: string;
+      updated_at?: string;
+      state?: string;
+    }[];
+  }>(api, `/repos/${repo}/actions/workflows?per_page=100`).catch(() => null);
+  if (res?.status !== 200) return [];
+  return (res.data?.workflows ?? []).flatMap((w) =>
+    w.path?.startsWith(".github/workflows/")
+      ? [
+          {
+            file: w.path.split("/").pop() ?? w.path,
+            name: w.name ?? w.path,
+            updatedAt: w.updated_at ?? null,
+          },
+        ]
+      : [],
+  );
 }

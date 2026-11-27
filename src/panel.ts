@@ -693,7 +693,22 @@ export async function renderDevelopment(
 
   // Where it runs: its environments, production last (BARY-238).
   parts.push(
-    ...(await deploymentParts(api, dev.deployments, dev.commits, openModal)),
+    ...(await deploymentParts(
+      api,
+      dev.deployments,
+      dev.commits,
+      openModal,
+      () =>
+        void renderDevelopment(
+          api,
+          el,
+          issueId,
+          run,
+          openSettings,
+          focus,
+          openModal,
+        ),
+    )),
   );
 
   // In the issue's sidebar, without a box: edge to edge with its fields,

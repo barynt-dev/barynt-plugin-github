@@ -319,6 +319,11 @@
         "group": "GitHub Actions",
         "groupIcon": "lucide:workflow",
         "description": "A file in .github/workflows, e.g. deploy.yml. \"Run workflow\" starts it on the issue's branch; it needs on: workflow_dispatch. Empty: no action."
+      },
+      {
+        "key": "deployments",
+        "type": "json",
+        "label": "Deployments"
       }
     ],
     "credentials": [
@@ -388,7 +393,8 @@
             "title": "Deployed to production",
             "on": "deployment.production"
           }
-        ]
+        ],
+        "workflowDeployments": "deployments"
       }
     ],
     "filters": [
@@ -565,7 +571,8 @@
           "field": "environment"
         }
       }
-    ]
+    ],
+    "settingsPage": "section"
   },
   "previews": [
     {

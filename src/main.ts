@@ -8,10 +8,17 @@ import {
   renameBranchAction,
   runWorkflowAction,
 } from "./actions";
-import { type DeploymentView, renderDeployment } from "./deployments";
+import {
+  configOf,
+  type DeploymentView,
+  renderDeployment,
+  renderStage,
+  type StageView,
+} from "./deployments";
 import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
+import { renderDeploySettings } from "./settingsPage";
 
 // The plugin's part in Barynt's frames: it draws what Barynt keeps on the
 // issues from GitHub's webhooks — the pull request's row on a card
@@ -22,27 +29,61 @@ export default class GitHub extends Plugin {
     // One call for the whole batch of cards, never one to GitHub per card.
     this.registerBadges({
       provide: async (issues) => {
-        const data = await this.api.issueData.list(issues.map((i) => i.id));
+        const [data, config] = await Promise.all([
+          this.api.issueData.list(issues.map((i) => i.id)),
+          configOf(this.api),
+        ]);
         return Object.fromEntries(
           issues.flatMap((issue) => {
-            const row = pullRequestRow(data[issue.id] ?? []);
+            const row = pullRequestRow(data[issue.id] ?? [], config);
             return row ? [[issue.id, [row]]] : [];
           }),
         );
+      },
+    });
+    // Below Barynt's settings form, in a project: the deployments' stages,
+    // environments, workflows and patterns.
+    let saveDeploy: (() => Promise<void>) | null = null;
+    this.registerSettings({
+      render: async (el) => {
+        if (!this.context.projectId) return;
+        saveDeploy = await renderDeploySettings(this.api, el, {
+          unsaved: (on) => this.setUnsaved(on),
+        });
+      },
+      save: async () => {
+        await saveDeploy?.();
       },
     });
     this.registerIssuePanel({
       id: "development",
       render: async (el, { issueId }) => {
         if (!issueId) return;
-        // A window the panel opened: an environment's details.
+        // A window the panel opened: an environment's details, or a
+        // stage's parts.
         const modal = this.context.modal;
+        const host = {
+          close: () => this.closeModal(),
+          openSettings: (level: "personal" | "project") =>
+            this.openSettings(level),
+        };
         if (modal?.view === "deployment") {
           await renderDeployment(
             this.api,
             el,
             issueId,
             modal.data as DeploymentView,
+            host,
+          );
+          return;
+        }
+        if (modal?.view === "stage") {
+          await renderStage(
+            this.api,
+            el,
+            issueId,
+            modal.data as StageView,
+            host,
           );
           return;
         }
