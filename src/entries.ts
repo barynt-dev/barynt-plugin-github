@@ -1,6 +1,6 @@
 // What Barynt keeps on an issue for this plugin, read from GitHub's
-// webhooks (`handle: "link"`): one entry per pull request, branch, commit
-// and checks. The shapes are Barynt's — see its docs/dev/plugins-manifest.md,
+// webhooks (`handle: "link"`): one entry per pull request, branch, commit,
+// checks and environment deployed to. The shapes are Barynt's — see its docs/dev/plugins-manifest.md,
 // "handle: link". Read with `api.issueData.list`.
 
 export interface PullRequest {
@@ -51,7 +51,42 @@ export interface Checks {
   at: string;
 }
 
-export type Entry = PullRequest | Branch | Commit | Checks;
+/** One deployment to an environment — the latest, or one before it. */
+export interface DeploymentRun {
+  id?: number | null;
+  /** `pending` queued, `running`, `waiting` for an approval, `cancelled`,
+   *  `inactive` replaced by a newer one. */
+  state:
+    | "success"
+    | "failure"
+    | "pending"
+    | "running"
+    | "waiting"
+    | "cancelled"
+    | "inactive";
+  ref: string | null;
+  sha: string | null;
+  /** The environment's address, else the log's. */
+  url: string | null;
+  logUrl?: string | null;
+  workflow?: string | null;
+  runId?: number | null;
+  creator?: string | null;
+  at: string;
+}
+
+export interface Deployment extends DeploymentRun {
+  kind: "deployment";
+  repo: string;
+  environment: string;
+  production: boolean;
+  /** A workflow's run counted as a deployment: its file. */
+  workflowFile?: string;
+  /** The ones before it, newest first. */
+  history?: DeploymentRun[];
+}
+
+export type Entry = PullRequest | Branch | Commit | Checks | Deployment;
 
 /** An issue's entries, by kind — anything Barynt doesn't send is left out. */
 export function sortEntries(raw: { key: string; value: unknown }[]) {
@@ -67,5 +102,8 @@ export function sortEntries(raw: { key: string; value: unknown }[]) {
     branches: newest(all.filter((e): e is Branch => e.kind === "branch")),
     commits: newest(all.filter((e): e is Commit => e.kind === "commit")),
     checks: newest(all.filter((e): e is Checks => e.kind === "checks")),
+    deployments: newest(
+      all.filter((e): e is Deployment => e.kind === "deployment"),
+    ),
   };
 }

@@ -53,8 +53,10 @@ describe("the GitHub plugin", () => {
       { id: "i-1", ref: "WEB-1" },
       { id: "i-2", ref: "WEB-2" },
     ]);
+    // One for the batch — and the project's stages for deployments.
     expect(host.calls).toEqual([
       { method: "issueData.list", params: { issueIds: ["i-1", "i-2"] } },
+      { method: "settings.get", params: {} },
     ]);
     expect(Object.keys(badges)).toEqual(["i-1"]);
     expect(badges["i-1"][0]).toMatchObject({ text: "#42 Approved" });
@@ -62,7 +64,7 @@ describe("the GitHub plugin", () => {
     await unload();
   });
 
-  it("draws the Development panel, reviews with the person's token", async () => {
+  it("draws the Development panel; Details opens the pull request's window, reviews with the person's token", async () => {
     const pr = {
       kind: "pull_request",
       repo: "acme/web",
@@ -78,7 +80,7 @@ describe("the GitHub plugin", () => {
       deletions: 34,
       at: "2026-11-19T10:00:00Z",
     };
-    const panel = (net: () => unknown) => {
+    const frame = (net: () => unknown, modal?: unknown) => {
       const root = document.createElement("div");
       return {
         root,
@@ -87,6 +89,7 @@ describe("the GitHub plugin", () => {
           context: {
             slot: { kind: "issuePanel", id: "development" },
             issueId: "i-1",
+            ...(modal ? { modal: modal as never } : {}),
           },
           handlers: {
             "issueData.list": () => ({
@@ -98,30 +101,288 @@ describe("the GitHub plugin", () => {
       };
     };
     const settle = () => new Promise((r) => setTimeout(r, 0));
-
-    const withToken = panel(() => ({
+    const reviewsOk = () => ({
       status: 200,
       headers: {},
       text: JSON.stringify([{ user: { login: "tom" }, state: "APPROVED" }]),
-    }));
-    await loadPlugin(GitHub, withToken.host);
+    });
+
+    const panel = frame(reviewsOk);
+    await loadPlugin(GitHub, panel.host);
     await settle();
-    expect(withToken.root.textContent).toContain("acme/web#42");
-    expect(withToken.root.textContent).toContain("tom");
-    expect(withToken.host.calls.at(-1)).toMatchObject({
-      method: "net.fetch",
+    // One repository: the number alone.
+    expect(panel.root.textContent).toContain("#42 Keep the cookie");
+    expect(panel.root.textContent).toContain("Waiting for a review");
+    // The card stays short: Details opens the pull request's window.
+    (
+      panel.root.querySelector("button.bui-card-more") as unknown as {
+        click(): void;
+      }
+    ).click();
+    expect(panel.host.openedModals[0]).toMatchObject({
+      view: "pull-request",
+      size: "lg",
+      data: { repo: "acme/web", number: 42, tab: "overview" },
+    });
+
+    // Its Reviews tab, with the person's token.
+    const window = frame(reviewsOk, {
+      view: "pull-request",
+      data: { repo: "acme/web", number: 42, tab: "reviews" },
+    });
+    await loadPlugin(GitHub, window.host);
+    await settle();
+    await settle();
+    expect(window.root.textContent).toContain("tom");
+    expect(
+      window.host.calls.find(
+        (c) =>
+          c.method === "net.fetch" &&
+          String((c.params as { url: string }).url).includes("/reviews"),
+      ),
+    ).toMatchObject({
       params: {
         url: "https://api.github.com/repos/acme/web/pulls/42/reviews?per_page=100",
       },
     });
 
-    const noToken = panel(() => {
-      // As Barynt refuses a request without the person's token.
-      throw new Error("credential_missing");
-    });
+    const noToken = frame(
+      () => {
+        // As Barynt refuses a request without the person's token.
+        throw new Error("credential_missing");
+      },
+      {
+        view: "pull-request",
+        data: { repo: "acme/web", number: 42, tab: "reviews" },
+      },
+    );
     await loadPlugin(GitHub, noToken.host);
     await settle();
-    expect(noToken.root.textContent).toContain("Keep your GitHub token");
+    await settle();
+    expect(noToken.root.textContent).toContain("or keep your own token");
+  });
+
+  it("opens on the branch — the pull requests too when a badge asked", async () => {
+    const pr = {
+      kind: "pull_request",
+      repo: "acme/web",
+      number: 42,
+      title: "Keep the cookie",
+      state: "open",
+      review: null,
+      url: "https://github.com/acme/web/pull/42",
+      branch: "web-1",
+      base: "main",
+      author: "ada",
+      additions: 1,
+      deletions: 0,
+      at: "2026-11-19T10:00:00Z",
+    };
+    const folds = async (focus?: string) => {
+      const root = document.createElement("div") as unknown as HTMLElement;
+      const host = createTestHost({
+        root,
+        context: {
+          slot: { kind: "issuePanel", id: "development" },
+          issueId: "i-1",
+          ...(focus && { focus }),
+        },
+        handlers: {
+          "issueData.list": () => ({
+            "i-1": [
+              { key: "pr", value: pr, updatedAt: pr.at },
+              {
+                key: "b",
+                value: {
+                  kind: "branch",
+                  repo: "acme/web",
+                  name: "web-1",
+                  url: null,
+                  deleted: false,
+                  at: pr.at,
+                },
+                updatedAt: pr.at,
+              },
+            ],
+          }),
+          "net.fetch": (() => ({
+            status: 200,
+            headers: {},
+            text: "[]",
+          })) as never,
+        },
+      });
+      await loadPlugin(GitHub, host);
+      await new Promise((r) => setTimeout(r, 0));
+      return [...root.querySelectorAll("details.bui-fold")].map(
+        (d) => (d as unknown as { open: boolean }).open,
+      );
+    };
+    // Branch, pull requests, commits.
+    expect(await folds()).toEqual([true, false, false]);
+    expect(await folds("pull-requests")).toEqual([true, true, false]);
+  });
+
+  it("draws where it runs as stops, and opens one's window", async () => {
+    const deploy = {
+      kind: "deployment",
+      repo: "acme/web",
+      environment: "staging",
+      production: false,
+      id: 7,
+      state: "success",
+      ref: "main",
+      sha: "ccc1111aaaa",
+      url: "https://staging.acme.dev",
+      logUrl: "https://github.com/acme/web/actions/runs/70",
+      workflow: "Deploy",
+      runId: 70,
+      creator: "ada",
+      at: "2026-11-20T10:00:00Z",
+      history: [
+        {
+          id: 6,
+          state: "inactive",
+          ref: "main",
+          sha: "bbb2222",
+          url: null,
+          logUrl: null,
+          at: "2026-11-19T10:00:00Z",
+        },
+      ],
+    };
+    const handlers = {
+      "issueData.list": () => ({
+        "i-1": [{ key: "d", value: deploy, updatedAt: deploy.at }],
+      }),
+      // The repository deploys to production too — not reached yet.
+      "net.fetch": (() => ({
+        status: 200,
+        headers: {},
+        text: JSON.stringify([
+          { environment: "production", production_environment: true },
+          { environment: "staging" },
+        ]),
+      })) as never,
+    };
+    const root = document.createElement("div") as unknown as HTMLElement;
+    const host = createTestHost({
+      root,
+      context: {
+        slot: { kind: "issuePanel", id: "development" },
+        issueId: "i-1",
+      },
+      handlers,
+    });
+    await loadPlugin(GitHub, host);
+    await new Promise((r) => setTimeout(r, 0));
+    const stops = [...root.querySelectorAll(".bui-station")];
+    expect(
+      stops.map((s) => s.querySelector(".bui-station-label")?.textContent),
+    ).toEqual(["Staging", "Production"]);
+    expect(stops.map((s) => (s as HTMLElement).dataset.state)).toEqual([
+      "success",
+      "pending",
+    ]);
+    expect(
+      stops[0].querySelector("a.bui-station-link")?.getAttribute("href"),
+    ).toBe("https://staging.acme.dev/");
+    (stops[0].querySelector("button") as HTMLButtonElement).click();
+    expect(host.openedModals).toEqual([
+      {
+        view: "deployment",
+        title: "Staging",
+        data: { repo: "acme/web", environment: "staging" },
+      },
+    ]);
+
+    // The window: details, the history, and its buttons.
+    const inModal = document.createElement("div") as unknown as HTMLElement;
+    const modalHost = createTestHost({
+      root: inModal,
+      context: {
+        slot: { kind: "issuePanel", id: "development" },
+        issueId: "i-1",
+        modal: host.openedModals[0],
+      },
+      handlers,
+    });
+    await loadPlugin(GitHub, modalHost);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(inModal.querySelectorAll(".bui-list-item")).toHaveLength(2);
+    expect(inModal.textContent).toContain("Deploy · ");
+    expect(
+      [...inModal.querySelectorAll(".bui-button")].map((b) => b.textContent),
+    ).toEqual(["Deploy again", "All logs (zip)", "On GitHub", "Open app"]);
+  });
+
+  it("with nothing linked, says where to start", async () => {
+    const panel = (
+      repositories: string[],
+      net: () => unknown,
+    ): { root: HTMLElement; host: ReturnType<typeof createTestHost> } => {
+      const root = document.createElement("div") as unknown as HTMLElement;
+      return {
+        root,
+        host: createTestHost({
+          root,
+          context: {
+            slot: { kind: "issuePanel", id: "development" },
+            issueId: "i-1",
+          },
+          handlers: {
+            "issueData.list": () => ({ "i-1": [] }),
+            "settings.get": () => ({ repositories }),
+            "issues.get": () =>
+              ({
+                id: "i-1",
+                ref: "MOB-2",
+                title: "Add a timer",
+                type: null,
+              }) as never,
+            "net.fetch": net as never,
+          },
+        }),
+      };
+    };
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    const click = (root: HTMLElement, label: string) =>
+      (
+        [...root.querySelectorAll("button")].find((b) =>
+          b.textContent?.includes(label),
+        ) as unknown as { click: () => void }
+      ).click();
+
+    // No repository: the project's settings.
+    const noRepo = panel([], () => ({ status: 200, headers: {}, text: "{}" }));
+    await loadPlugin(GitHub, noRepo.host);
+    await settle();
+    expect(noRepo.root.textContent).toContain("No repository set");
+    click(noRepo.root, "Connect repository");
+    expect(noRepo.host.openedSettings).toEqual(["project"]);
+
+    // No way into GitHub: the person's.
+    const noAccess = panel(["acme/web"], () => {
+      throw new Error("credential_missing");
+    });
+    await loadPlugin(GitHub, noAccess.host);
+    await settle();
+    expect(noAccess.root.textContent).toContain("No access to GitHub");
+    click(noAccess.root, "Connect GitHub");
+    expect(noAccess.host.openedSettings).toEqual(["personal"]);
+
+    // Else: create one — or copy its name.
+    const ready = panel(["acme/web"], () => ({
+      status: 200,
+      headers: {},
+      text: "{}",
+    }));
+    await loadPlugin(GitHub, ready.host);
+    await settle();
+    expect(ready.root.textContent).toContain("Create branch");
+    expect(ready.root.textContent?.toLowerCase()).toContain("mob-2");
+    click(ready.root, "Create branch");
+    expect(ready.host.started).toEqual([{ actionId: "create-branch" }]);
   });
 
   it("lets Barynt read GitHub's webhooks, with no server of its own", () => {
@@ -133,8 +394,16 @@ describe("the GitHub plugin", () => {
     });
     // Rules Barynt runs as the plugin's app (BARY-227): it may set a status.
     expect(hook.rules.map((r) => r.on)).toEqual([
+      "pull_request.draft",
       "pull_request.opened",
+      "pull_request.review_requested",
+      "pull_request.approved",
+      "pull_request.changes_requested",
       "pull_request.merged",
+      "pull_request.closed",
+      "checks.failed",
+      "deployment.test",
+      "deployment.production",
     ]);
     expect(manifest.capabilities).toContain("issues:write");
     expect("service" in manifest).toBe(false);

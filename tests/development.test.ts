@@ -1,5 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { development, latestReviews } from "../src/development";
+import {
+  development,
+  lagging,
+  lastComment,
+  latestReviews,
+  prProgress,
+  reviewer,
+  stationRank,
+  withoutIssueKey,
+} from "../src/development";
+import type { PullRequest } from "../src/entries";
 
 // What the "Development" panel shows (BARY-229), from Barynt's entries.
 
@@ -91,5 +101,234 @@ describe("latestReviews()", () => {
         { user: { login: "eve" }, state: "DISMISSED" },
       ]),
     ).toEqual([{ login: "tom", state: "approved" }]);
+  });
+
+  it("finds the newest comment, and how many there are", () => {
+    expect(
+      lastComment([
+        {
+          user: { login: "tom" },
+          state: "CHANGES_REQUESTED",
+          body: "Fix the test",
+        },
+        { user: { login: "ada" }, state: "COMMENTED", body: "  And the docs " },
+        { user: { login: "tom" }, state: "APPROVED", body: "" },
+        { user: { login: "eve" }, state: "DISMISSED", body: "Never mind" },
+      ]),
+    ).toEqual({ login: "ada", text: "And the docs", count: 2 });
+    expect(
+      lastComment([{ user: { login: "tom" }, state: "APPROVED" }]),
+    ).toBeNull();
+  });
+
+  it("names bots short — Barynt's app as Barynt-App", () => {
+    expect(reviewer("barynt-opposite-fancy-hotel-infect[bot]")).toEqual({
+      name: "Barynt-App",
+      bot: true,
+    });
+    expect(reviewer("dependabot[bot]")).toEqual({
+      name: "dependabot",
+      bot: true,
+    });
+    expect(reviewer("ada")).toEqual({ name: "ada", bot: false });
+  });
+});
+
+describe("deployments (BARY-238)", () => {
+  const deploy = (
+    environment: string,
+    production: boolean,
+    at: string,
+    sha = "abc",
+    repo = "acme/web",
+  ) => ({
+    key: `deploy:${environment}`,
+    value: {
+      kind: "deployment",
+      repo,
+      environment,
+      production,
+      state: "success",
+      ref: "main",
+      sha,
+      url: null,
+      at,
+    },
+  });
+
+  it("lists where it went in the order a change goes through", () => {
+    const dev = development([
+      deploy("production", true, "2026-11-19T10:00:00Z"),
+      deploy("staging", false, "2026-11-20T10:00:00Z"),
+      deploy("preview-web-42", false, "2026-11-20T11:00:00Z"),
+    ]);
+    expect(dev.deployments.map((d) => d.environment)).toEqual([
+      "preview-web-42",
+      "staging",
+      "production",
+    ]);
+  });
+
+  it("ranks environments by their names", () => {
+    const rank = (environment: string, production = false) =>
+      stationRank({ environment, production });
+    expect(rank("Preview")).toBeLessThan(rank("test"));
+    expect(rank("test")).toBeLessThan(rank("staging"));
+    expect(rank("uat")).toBe(rank("staging"));
+    expect(rank("staging")).toBeLessThan(rank("live", true));
+    expect(rank("prod")).toBe(4);
+  });
+
+  it("says when one further along runs an older version", () => {
+    const deployments = development([
+      deploy("staging", false, "2026-11-20T10:00:00Z", "ccc1111"),
+      deploy("production", true, "2026-11-19T10:00:00Z", "aaa1111"),
+    ]).deployments;
+    const commits = [
+      { sha: "ccc1111" },
+      { sha: "bbb1111" },
+      { sha: "aaa1111" },
+    ];
+    expect(lagging(deployments, commits)).toMatchObject({
+      behind: { environment: "production" },
+      ahead: { environment: "staging" },
+      commits: 2,
+    });
+    // Not among the commits: no count.
+    expect(lagging(deployments, [])?.commits).toBeNull();
+    // Production deployed after staging, or the same version: in step.
+    expect(
+      lagging(
+        development([
+          deploy("staging", false, "2026-11-19T10:00:00Z", "ccc1111"),
+          deploy("production", true, "2026-11-20T10:00:00Z", "aaa1111"),
+        ]).deployments,
+        commits,
+      ),
+    ).toBeNull();
+    // Another repository's environments don't compare.
+    expect(
+      lagging(
+        development([
+          deploy("staging", false, "2026-11-20T10:00:00Z", "ccc1111"),
+          deploy(
+            "production",
+            true,
+            "2026-11-19T10:00:00Z",
+            "aaa1111",
+            "acme/api",
+          ),
+        ]).deployments,
+        commits,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("several branches (BARY-238)", () => {
+  const branch = (name: string, h: number, deleted = false) =>
+    entry({
+      kind: "branch",
+      repo: "acme/web",
+      name,
+      url: null,
+      deleted,
+      at: at(h),
+    });
+  const pr = (branchName: string, state: string, h: number) =>
+    entry({
+      kind: "pull_request",
+      repo: "acme/web",
+      number: h,
+      title: "x",
+      state,
+      review: null,
+      url: null,
+      branch: branchName,
+      base: "main",
+      author: null,
+      additions: null,
+      deletions: null,
+      at: at(h),
+    });
+
+  it("puts the one with an open pull request on top, before a newer one", () => {
+    const { branchView } = development([
+      branch("web-42-spike", 12),
+      branch("web-42-fix", 10),
+      pr("web-42-fix", "open", 11),
+    ]);
+    expect(branchView.main?.name).toBe("web-42-fix");
+    expect(branchView.main?.pr?.number).toBe(11);
+    expect(branchView.others.map((b) => b.name)).toEqual(["web-42-spike"]);
+  });
+
+  it("without one, the newest; deleted and merged ones are done", () => {
+    const { branchView } = development([
+      branch("web-42-new", 12),
+      branch("web-42-merged", 11),
+      pr("web-42-merged", "merged", 11),
+      branch("web-42-gone", 9, true),
+    ]);
+    expect(branchView.main?.name).toBe("web-42-new");
+    expect(branchView.others).toEqual([]);
+    expect(branchView.done.map((b) => b.name)).toEqual([
+      "web-42-merged",
+      "web-42-gone",
+    ]);
+  });
+});
+
+describe("a pull request's way to the merge", () => {
+  const pr = (over: Partial<PullRequest>): PullRequest => ({
+    kind: "pull_request",
+    repo: "acme/web",
+    number: 5,
+    title: "MOB-2: Fix it",
+    state: "open",
+    review: null,
+    url: "https://github.com/acme/web/pull/5",
+    branch: "mob-2",
+    base: "main",
+    author: "ada",
+    additions: 1,
+    deletions: 0,
+    at: "2026-11-25T10:00:00Z",
+    ...over,
+  });
+  const states = (p: ReturnType<typeof prProgress>) =>
+    p.stages.map((s) => s.state);
+
+  it("names failed checks first, then a review that wants changes", () => {
+    const failing = prProgress(pr({ review: "changes_requested" }), [
+      { state: "danger" },
+      { state: "danger" },
+      { state: "success" },
+    ]);
+    expect(failing.next).toEqual({ kind: "checksFailed", count: 2 });
+    expect(states(failing)).toEqual(["success", "danger", "danger", "pending"]);
+    expect(prProgress(pr({ review: "changes_requested" }), []).next.kind).toBe(
+      "changesRequested",
+    );
+  });
+
+  it("waits on a draft, running checks, a review — then it's ready", () => {
+    expect(prProgress(pr({ state: "draft" }), []).next.kind).toBe("draft");
+    expect(prProgress(pr({}), [{ state: "running" }]).next.kind).toBe(
+      "checksRunning",
+    );
+    expect(prProgress(pr({}), []).next.kind).toBe("awaitingReview");
+    const ready = prProgress(pr({ review: "approved" }), [
+      { state: "success" },
+    ]);
+    expect(ready.next.kind).toBe("readyToMerge");
+    expect(states(ready)).toEqual(["success", "success", "success", "warning"]);
+  });
+
+  it("drops the issue's key from a title", () => {
+    expect(withoutIssueKey("MOB-2: Fix it")).toBe("Fix it");
+    expect(withoutIssueKey("[BARY-238] Fix it")).toBe("Fix it");
+    expect(withoutIssueKey("Fix MOB-2")).toBe("Fix MOB-2");
+    expect(withoutIssueKey("MOB-2")).toBe("MOB-2");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Checks, PullRequest } from "../src/entries";
+import type { Checks, Deployment, PullRequest } from "../src/entries";
 import { prLook, pullRequestRow, shownPullRequest } from "../src/row";
 
 // The pull request's row on a card (BARY-228), from the entries Barynt
@@ -33,6 +33,18 @@ const checks = (over: Partial<Checks> = {}): Checks => ({
     { name: "e2e", state: "pending", url: null },
   ],
   at: "2026-11-19T10:01:00Z",
+  ...over,
+});
+const deployment = (over: Partial<Deployment> = {}): Deployment => ({
+  kind: "deployment",
+  repo: "acme/web",
+  environment: "production",
+  production: true,
+  state: "success",
+  ref: "main",
+  sha: "abc",
+  url: null,
+  at: "2026-11-19T11:00:00Z",
   ...over,
 });
 const entries = (...values: unknown[]) =>
@@ -70,7 +82,7 @@ describe("how a pull request reads", () => {
 });
 
 describe("the row", () => {
-  it("draws number, state, the branch's checks and their result", () => {
+  it("draws number, a divider, the review — and on the right the checks", () => {
     const row = pullRequestRow(entries(pr(), checks()));
     expect(row).toMatchObject({
       badge: "pull-request",
@@ -79,38 +91,117 @@ describe("the row", () => {
       tooltip: "acme/web#42: Keep the session cookie",
     });
     expect(row?.parts).toEqual([
-      { type: "icon", icon: "git-pull-request", tone: "success" },
-      { type: "text", text: "#42", mono: true, tone: "subtle" },
-      { type: "text", text: "Open", tone: "success", strong: true },
+      {
+        type: "group",
+        gap: 1,
+        align: "center",
+        children: [
+          { type: "icon", icon: "git-pull-request", tone: "success" },
+          { type: "text", text: "#42", size: "xs", mono: true, tone: "subtle" },
+        ],
+      },
+      { type: "divider" },
+      { type: "icon", icon: "eye", tone: "neutral" },
+      { type: "text", text: "Review", tone: "subtle", size: "xs" },
       { type: "spacer" },
-      { type: "steps", steps: ["success", "success", "running"] },
-      { type: "status", status: "pending" },
+      // Running: how many of all are done.
+      {
+        type: "group",
+        gap: 1,
+        align: "center",
+        children: [
+          { type: "icon", icon: "timer", tone: "info" },
+          {
+            type: "text",
+            text: "2/3",
+            size: "xs",
+            mono: true,
+            tone: "info",
+            strong: true,
+          },
+        ],
+      },
     ]);
+    // Failed: how many of all failed.
+    const failed = pullRequestRow(
+      entries(
+        pr({ review: "changes_requested" }),
+        checks({
+          state: "failure",
+          runs: [
+            { name: "build", state: "failure", url: null },
+            { name: "test", state: "success", url: null },
+          ],
+        }),
+      ),
+    );
+    expect(failed?.parts?.at(-1)).toMatchObject({
+      children: [
+        { icon: "circle-x", tone: "danger" },
+        { text: "1/2", tone: "danger" },
+      ],
+    });
+    expect(failed?.parts).toContainEqual({
+      type: "text",
+      text: "Changes",
+      tone: "warning",
+      size: "xs",
+      strong: true,
+    });
   });
 
   it("leaves other branches' checks, and checks once it's merged", () => {
+    // Nothing after the spacer: no checks on the right.
     const other = checks({ branch: "main", state: "failure" });
-    expect(pullRequestRow(entries(pr(), other))?.parts).not.toContainEqual(
-      expect.objectContaining({ type: "steps" }),
-    );
+    expect(pullRequestRow(entries(pr(), other))?.parts?.at(-1)).toEqual({
+      type: "spacer",
+    });
     const merged = pullRequestRow(entries(pr({ state: "merged" }), checks()));
-    expect(merged?.parts).not.toContainEqual(
-      expect.objectContaining({ type: "steps" }),
-    );
-  });
-
-  it("counts the other pull requests", () => {
-    const row = pullRequestRow(
-      entries(
-        pr(),
-        pr({ number: 7, state: "merged", at: "2026-11-18T10:00:00Z" }),
-      ),
-    );
-    expect(row?.parts?.at(-1)).toEqual({ type: "chip", text: "+1" });
+    expect(merged?.parts).toContainEqual({
+      type: "text",
+      text: "Merged",
+      tone: "primary",
+      size: "xs",
+      strong: true,
+    });
+    expect(merged?.parts?.at(-1)).toEqual({ type: "spacer" });
   });
 
   it("draws nothing without a pull request", () => {
     expect(pullRequestRow(entries(checks()))).toBeNull();
     expect(pullRequestRow([])).toBeNull();
+  });
+
+  it("adds where it runs: a rocket and a bar per environment, production last", () => {
+    const row = pullRequestRow(
+      entries(
+        pr({ state: "merged" }),
+        deployment(),
+        deployment({
+          environment: "staging",
+          production: false,
+          state: "failure",
+        }),
+      ),
+    );
+    expect(row?.parts?.at(-1)).toEqual({
+      type: "group",
+      gap: 1,
+      align: "center",
+      children: [
+        { type: "icon", icon: "rocket", tone: "danger" },
+        { type: "steps", steps: ["danger", "success"] },
+      ],
+    });
+    // Merged: a click opens the panel at where it runs.
+    expect(row?.section).toBe("deployments");
+  });
+
+  it("shows where it runs without a pull request too", () => {
+    const row = pullRequestRow(entries(deployment({ state: "pending" })));
+    expect(row?.section).toBe("deployments");
+    expect(row?.parts?.at(-1)).toMatchObject({
+      children: [{ icon: "rocket", tone: "info" }, { steps: ["running"] }],
+    });
   });
 });

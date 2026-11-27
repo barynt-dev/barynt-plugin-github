@@ -14,6 +14,140 @@
       "description": {
         "short": "Pull Requests, Branches und Checks direkt an ihren Issues: auf dem Board, im Issue und mit Regeln, die das Issue weitersetzen.",
         "about": "about.de.md"
+      },
+      "contributes": {
+        "actions": {
+          "create-branch": "Branch erstellen",
+          "copy-branch-name": "Branch-Namen kopieren",
+          "open-pull-request": "Pull Request öffnen",
+          "run-workflow": "Workflow starten",
+          "create-pull-request": "Pull Request erstellen",
+          "rename-branch": "Branch umbenennen",
+          "delete-branch": "Branch löschen"
+        },
+        "issuePanels": {
+          "development": "Entwicklung"
+        },
+        "issueBadges": {
+          "pull-request": "Pull Request"
+        },
+        "settings": {
+          "repositories": {
+            "label": "Repositories",
+            "description": "Die Repositories, mit denen dieses Projekt arbeitet – aus den oben verbundenen GitHub-Konten. Mehrere sind möglich; Branches entstehen standardmäßig im ersten."
+          },
+          "branchPattern": {
+            "label": "Branch-Name",
+            "description": "{type} ist feature, bugfix oder chore je nach Issue-Typ, {user} der GitHub-Login, {key} der Schlüssel des Issues, {title} sein Titel. Behalte {key}: Daran erkennt Barynt das Issue.",
+            "suggestions": {
+              "type-key-title": {
+                "label": "Typ, Schlüssel und Titel (empfohlen)",
+                "hint": "feature/web-42-session-cookie-behalten"
+              },
+              "key-title": {
+                "label": "Schlüssel und Titel",
+                "hint": "web-42-session-cookie-behalten"
+              },
+              "user-key-title": {
+                "label": "Login, Schlüssel und Titel",
+                "hint": "ada/web-42-session-cookie-behalten"
+              },
+              "type-key": {
+                "label": "Typ und Schlüssel",
+                "hint": "feature/web-42"
+              },
+              "key": {
+                "label": "Nur Schlüssel",
+                "hint": "web-42"
+              }
+            },
+            "group": "Branches"
+          },
+          "branchAssign": {
+            "label": "Issue der Person zuweisen, die seinen Branch erstellt",
+            "group": "Branches"
+          },
+          "branchStatus": {
+            "label": "Status, wenn ein Branch erstellt wird",
+            "description": "Leer lassen, um den Status zu behalten.",
+            "group": "Branches"
+          },
+          "workflow": {
+            "label": "Zu startender Workflow",
+            "group": "GitHub Actions",
+            "description": "Eine Datei in .github/workflows, z. B. deploy.yml. „Workflow starten“ startet ihn auf dem Branch des Issues; er braucht on: workflow_dispatch. Leer: keine Aktion."
+          }
+        },
+        "credentials": {
+          "githubToken": {
+            "label": "Eigenes GitHub-Token (optional)",
+            "description": "Nur nötig, wenn du oben kein GitHub-Konto verbindest. Ein Token hier geht vor. Fine-grained: Contents Lesen und Schreiben, Pull requests und Checks Lesen."
+          }
+        },
+        "inboundHooks": {
+          "github": {
+            "title": "GitHub-Repository",
+            "rules": {
+              "draft": "Als Entwurf geöffnet",
+              "opened": "Geöffnet oder bereit für Review",
+              "review-requested": "Review angefragt",
+              "approved": "Freigegeben",
+              "changes-requested": "Änderungen gewünscht",
+              "merged": "Gemergt",
+              "closed": "Ohne Merge geschlossen",
+              "checks-failed": "Checks auf dem Branch fehlgeschlagen",
+              "deployed-test": "Auf eine Testumgebung deployt",
+              "deployed-production": "In Produktion deployt"
+            }
+          }
+        },
+        "connections": {
+          "github": "Allgemein"
+        },
+        "filters": {
+          "pull-request": {
+            "title": "Pull Request",
+            "options": {
+              "any": "Mit Pull Request",
+              "open": "Mit offenem Pull Request",
+              "none": "Ohne Pull Request"
+            }
+          },
+          "pr-status": {
+            "title": "PR-Status",
+            "options": {
+              "draft": "Entwurf",
+              "open": "Offen, noch kein Review",
+              "approved": "Freigegeben",
+              "changes": "Änderungen gewünscht",
+              "merged": "Gemergt",
+              "closed": "Geschlossen"
+            }
+          },
+          "branch": {
+            "title": "Branch",
+            "options": {
+              "any": "Mit Branch",
+              "none": "Ohne Branch"
+            }
+          },
+          "action": "GitHub Action",
+          "action-status": {
+            "title": "GitHub-Actions-Status",
+            "options": {
+              "success": "Bestanden",
+              "failure": "Fehlgeschlagen",
+              "pending": "Läuft"
+            }
+          },
+          "repository": "Repository",
+          "deployment": "Deployt auf"
+        }
+      },
+      "previews": {
+        "preview-1.webp": "Pull Requests auf dem Board",
+        "preview-2.webp": "Entwicklung-Panel im Issue",
+        "preview-3.webp": "Webhook und Regeln"
       }
     }
   },
@@ -46,7 +180,8 @@
     "webhooks:receive",
     "ui:issue-badge",
     "ui:issue-panel",
-    "ui:action"
+    "ui:action",
+    "storage:own"
   ],
   "network": ["api.github.com"],
   "contributes": {
@@ -60,6 +195,7 @@
       {
         "id": "development",
         "title": "Development",
+        "icon": "lucide:git-pull-request",
         "placement": "sidebar"
       }
     ],
@@ -81,40 +217,120 @@
         "title": "Open pull request",
         "icon": "lucide:git-pull-request",
         "where": ["issueMenu", "commandPalette"]
+      },
+      {
+        "id": "run-workflow",
+        "title": "Run workflow",
+        "icon": "lucide:play",
+        "where": ["issueMenu", "commandPalette"]
+      },
+      {
+        "id": "create-pull-request",
+        "title": "Create pull request",
+        "icon": "lucide:git-pull-request",
+        "where": []
+      },
+      {
+        "id": "rename-branch",
+        "title": "Rename branch",
+        "icon": "lucide:git-branch",
+        "where": []
+      },
+      {
+        "id": "delete-branch",
+        "title": "Delete branch",
+        "icon": "lucide:git-branch",
+        "where": []
+      }
+    ],
+    "connections": [
+      {
+        "id": "github",
+        "title": "General",
+        "provider": "github"
       }
     ],
     "settings": [
       {
         "key": "repositories",
-        "type": "textarea",
+        "type": "repositories",
         "label": "Repositories",
-        "description": "owner/repo, one per line. Branches are created in the first."
+        "description": "The repositories this project works with — from the GitHub accounts connected above. Several are fine; branches go to the first by default."
       },
       {
         "key": "branchPattern",
         "type": "text",
         "label": "Branch name",
-        "description": "{user} is the GitHub login, {key} the issue's key, {title} its title. Keep {key}: it's how Barynt finds the issue.",
-        "default": "{user}/{key}-{title}"
+        "description": "{type} is feature, bugfix or chore by the issue's type, {user} the GitHub login, {key} the issue's key, {title} its title. Keep {key}: it's how Barynt finds the issue.",
+        "default": "{type}/{key}-{title}",
+        "suggestions": [
+          {
+            "id": "type-key-title",
+            "value": "{type}/{key}-{title}",
+            "label": "Type, key and title (recommended)",
+            "hint": "feature/web-42-keep-the-session-cookie"
+          },
+          {
+            "id": "key-title",
+            "value": "{key}-{title}",
+            "label": "Key and title",
+            "hint": "web-42-keep-the-session-cookie"
+          },
+          {
+            "id": "user-key-title",
+            "value": "{user}/{key}-{title}",
+            "label": "Login, key and title",
+            "hint": "ada/web-42-keep-the-session-cookie"
+          },
+          {
+            "id": "type-key",
+            "value": "{type}/{key}",
+            "label": "Type and key",
+            "hint": "feature/web-42"
+          },
+          {
+            "id": "key",
+            "value": "{key}",
+            "label": "Key only",
+            "hint": "web-42"
+          }
+        ],
+        "group": "Branches",
+        "groupIcon": "lucide:git-branch"
       },
       {
         "key": "branchAssign",
         "type": "boolean",
         "label": "Assign the issue to whoever creates its branch",
-        "default": true
+        "default": true,
+        "group": "Branches"
       },
       {
         "key": "branchStatus",
         "type": "status",
         "label": "Status when a branch is created",
-        "description": "Leave empty to keep the status."
+        "description": "Leave empty to keep the status.",
+        "group": "Branches"
+      },
+      {
+        "key": "workflow",
+        "type": "text",
+        "label": "Workflow to run",
+        "group": "GitHub Actions",
+        "groupIcon": "lucide:workflow",
+        "description": "A file in .github/workflows, e.g. deploy.yml. \"Run workflow\" starts it on the issue's branch; it needs on: workflow_dispatch. Empty: no action."
+      },
+      {
+        "key": "deployments",
+        "type": "json",
+        "label": "Deployments"
       }
     ],
     "credentials": [
       {
         "key": "githubToken",
-        "label": "GitHub token",
-        "description": "A fine-grained token for the team's repositories: Contents read and write (for branches), Pull requests and Checks read. Only ever sent to api.github.com.",
+        "label": "Your own GitHub token (optional)",
+        "description": "Only needed if you don't connect a GitHub account above. A token here goes first. Fine-grained: Contents read and write, Pull requests and Checks read.",
         "level": "user",
         "host": "api.github.com",
         "format": "Bearer {value}"
@@ -128,16 +344,232 @@
         "handle": "link",
         "rules": [
           {
+            "id": "draft",
+            "title": "Opened as a draft",
+            "on": "pull_request.draft"
+          },
+          {
             "id": "opened",
-            "title": "When a pull request is opened",
+            "title": "Opened or ready for review",
             "on": "pull_request.opened"
           },
           {
+            "id": "review-requested",
+            "title": "Review requested",
+            "on": "pull_request.review_requested"
+          },
+          {
+            "id": "approved",
+            "title": "Approved",
+            "on": "pull_request.approved"
+          },
+          {
+            "id": "changes-requested",
+            "title": "Changes requested",
+            "on": "pull_request.changes_requested"
+          },
+          {
             "id": "merged",
-            "title": "When a pull request is merged",
+            "title": "Merged",
             "on": "pull_request.merged"
+          },
+          {
+            "id": "closed",
+            "title": "Closed without merging",
+            "on": "pull_request.closed"
+          },
+          {
+            "id": "checks-failed",
+            "title": "Checks failed on the branch",
+            "on": "checks.failed"
+          },
+          {
+            "id": "deployed-test",
+            "title": "Deployed to a test environment",
+            "on": "deployment.test"
+          },
+          {
+            "id": "deployed-production",
+            "title": "Deployed to production",
+            "on": "deployment.production"
+          }
+        ],
+        "workflowDeployments": "deployments"
+      }
+    ],
+    "filters": [
+      {
+        "id": "pr-status",
+        "title": "Pull request status",
+        "icon": "lucide:git-pull-request",
+        "kind": "pull_request",
+        "menu": "main",
+        "options": [
+          {
+            "id": "draft",
+            "label": "Draft",
+            "when": {
+              "state": "draft"
+            }
+          },
+          {
+            "id": "open",
+            "label": "Open, no review yet",
+            "when": {
+              "state": "open",
+              "review": null
+            }
+          },
+          {
+            "id": "approved",
+            "label": "Approved",
+            "when": {
+              "state": "open",
+              "review": "approved"
+            }
+          },
+          {
+            "id": "changes",
+            "label": "Changes requested",
+            "when": {
+              "state": "open",
+              "review": "changes_requested"
+            }
+          },
+          {
+            "id": "merged",
+            "label": "Merged",
+            "when": {
+              "state": "merged"
+            }
+          },
+          {
+            "id": "closed",
+            "label": "Closed",
+            "when": {
+              "state": "closed"
+            }
           }
         ]
+      },
+      {
+        "id": "action-status",
+        "title": "GitHub Actions status",
+        "icon": "lucide:circle-check",
+        "kind": "checks",
+        "menu": "main",
+        "options": [
+          {
+            "id": "success",
+            "label": "Passed",
+            "when": {
+              "state": "success"
+            }
+          },
+          {
+            "id": "failure",
+            "label": "Failed",
+            "when": {
+              "state": "failure"
+            }
+          },
+          {
+            "id": "pending",
+            "label": "Running",
+            "when": {
+              "state": "pending"
+            }
+          }
+        ]
+      },
+      {
+        "id": "pull-request",
+        "title": "Pull request",
+        "icon": "lucide:git-pull-request",
+        "kind": "pull_request",
+        "menu": "main",
+        "options": [
+          {
+            "id": "any",
+            "label": "With a pull request"
+          },
+          {
+            "id": "open",
+            "label": "With an open pull request",
+            "when": {
+              "state": ["open", "draft"]
+            }
+          },
+          {
+            "id": "none",
+            "label": "Without a pull request",
+            "absent": true
+          }
+        ],
+        "values": {
+          "field": "url",
+          "label": "#{number} {title}"
+        }
+      },
+      {
+        "id": "branch",
+        "title": "Branch",
+        "icon": "lucide:git-branch",
+        "kind": "branch",
+        "menu": "advanced",
+        "options": [
+          {
+            "id": "any",
+            "label": "With a branch",
+            "when": {
+              "deleted": false
+            }
+          },
+          {
+            "id": "none",
+            "label": "Without a branch",
+            "absent": true,
+            "when": {
+              "deleted": false
+            }
+          }
+        ],
+        "values": {
+          "field": "name",
+          "when": {
+            "deleted": false
+          }
+        }
+      },
+      {
+        "id": "action",
+        "title": "GitHub Action",
+        "icon": "lucide:play",
+        "kind": "checks",
+        "menu": "advanced",
+        "values": {
+          "field": "runs.name"
+        }
+      },
+      {
+        "id": "repository",
+        "title": "Repository",
+        "icon": "lucide:folder-git-2",
+        "kind": "pull_request",
+        "menu": "advanced",
+        "values": {
+          "field": "repo"
+        }
+      },
+      {
+        "id": "deployment",
+        "title": "Deployed to",
+        "icon": "lucide:rocket",
+        "kind": "deployment",
+        "menu": "advanced",
+        "values": {
+          "field": "environment"
+        }
       }
     ],
     "settingsPage": "section"
