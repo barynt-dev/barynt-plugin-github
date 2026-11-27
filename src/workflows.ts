@@ -169,17 +169,19 @@ export async function workflowParts(
   const startable = config.workflows.filter(
     (w) => w.start && (w.startBy !== "managers" || me?.canManage),
   );
-  const runs = latestRuns(
-    (
-      await Promise.all(
-        branches
-          .slice(0, 3)
-          .map((b) => branchRuns(api, b.repo, b.name).catch(() => [])),
-      )
-    ).flat(),
-    config.workflows,
-  );
-  if (runs.length === 0 && startable.length === 0) return [];
+  const all = (
+    await Promise.all(
+      branches
+        .slice(0, 3)
+        .map((b) => branchRuns(api, b.repo, b.name).catch(() => [])),
+    )
+  ).flat();
+  const runs = latestRuns(all, config.workflows);
+  // Workflows the project hides from issues — said so, not "none".
+  const hidden = latestRuns(all, []).filter((r) =>
+    config.workflows.some((w) => w.workflow === r.file && w.show === false),
+  ).length;
+  if (runs.length === 0 && startable.length === 0 && hidden === 0) return [];
 
   const failed = runs.filter((r) => runStep(r) === "danger").length;
   const running = runs.filter((r) =>
@@ -239,7 +241,13 @@ export async function workflowParts(
     );
   else
     content.push(
-      text({ text: t("noWorkflowRuns"), tone: "subtle", size: "sm" }),
+      text({
+        text: hidden
+          ? t("workflowsHidden", { count: hidden })
+          : t("noWorkflowRuns"),
+        tone: "subtle",
+        size: "sm",
+      }),
     );
   const section = sectionHeader({
     size: "sm",
