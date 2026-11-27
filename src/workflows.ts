@@ -203,6 +203,7 @@ export async function workflowParts(
   if (runs.length)
     content.push(
       list({
+        variant: "cards",
         items: runs.slice(0, 12).map((run) => {
           const look = runLook(run);
           return {
