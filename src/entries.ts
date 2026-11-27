@@ -51,16 +51,29 @@ export interface Checks {
   at: string;
 }
 
-export interface Deployment {
+/** One deployment to an environment — the latest, or one before it. */
+export interface DeploymentRun {
+  id?: number | null;
+  /** `inactive`: replaced by a newer one. */
+  state: "success" | "failure" | "pending" | "inactive";
+  ref: string | null;
+  sha: string | null;
+  /** The environment's address, else the log's. */
+  url: string | null;
+  logUrl?: string | null;
+  workflow?: string | null;
+  runId?: number | null;
+  creator?: string | null;
+  at: string;
+}
+
+export interface Deployment extends DeploymentRun {
   kind: "deployment";
   repo: string;
   environment: string;
   production: boolean;
-  state: "success" | "failure" | "pending";
-  ref: string | null;
-  sha: string | null;
-  url: string | null;
-  at: string;
+  /** The ones before it, newest first. */
+  history?: DeploymentRun[];
 }
 
 export type Entry = PullRequest | Branch | Commit | Checks | Deployment;

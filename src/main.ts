@@ -8,6 +8,7 @@ import {
   renameBranchAction,
   runWorkflowAction,
 } from "./actions";
+import { type DeploymentView, renderDeployment } from "./deployments";
 import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
@@ -33,16 +34,28 @@ export default class GitHub extends Plugin {
     this.registerIssuePanel({
       id: "development",
       render: async (el, { issueId }) => {
-        if (issueId)
-          await renderDevelopment(
+        if (!issueId) return;
+        // A window the panel opened: an environment's details.
+        const modal = this.context.modal;
+        if (modal?.view === "deployment") {
+          await renderDeployment(
             this.api,
             el,
             issueId,
-            (id, choice) =>
-              this.runAction(id, choice === undefined ? {} : { choice }),
-            (level) => this.openSettings(level),
-            this.context.focus,
+            modal.data as DeploymentView,
           );
+          return;
+        }
+        await renderDevelopment(
+          this.api,
+          el,
+          issueId,
+          (id, choice) =>
+            this.runAction(id, choice === undefined ? {} : { choice }),
+          (level) => this.openSettings(level),
+          this.context.focus,
+          (options) => this.openModal(options),
+        );
       },
     });
     const onIssue =

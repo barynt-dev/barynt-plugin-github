@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Checks, PullRequest } from "../src/entries";
+import type { Checks, Deployment, PullRequest } from "../src/entries";
 import { prLook, pullRequestRow, shownPullRequest } from "../src/row";
 
 // The pull request's row on a card (BARY-228), from the entries Barynt
@@ -33,6 +33,18 @@ const checks = (over: Partial<Checks> = {}): Checks => ({
     { name: "e2e", state: "pending", url: null },
   ],
   at: "2026-11-19T10:01:00Z",
+  ...over,
+});
+const deployment = (over: Partial<Deployment> = {}): Deployment => ({
+  kind: "deployment",
+  repo: "acme/web",
+  environment: "production",
+  production: true,
+  state: "success",
+  ref: "main",
+  sha: "abc",
+  url: null,
+  at: "2026-11-19T11:00:00Z",
   ...over,
 });
 const entries = (...values: unknown[]) =>
@@ -158,5 +170,38 @@ describe("the row", () => {
   it("draws nothing without a pull request", () => {
     expect(pullRequestRow(entries(checks()))).toBeNull();
     expect(pullRequestRow([])).toBeNull();
+  });
+
+  it("adds where it runs: a rocket and a bar per environment, production last", () => {
+    const row = pullRequestRow(
+      entries(
+        pr({ state: "merged" }),
+        deployment(),
+        deployment({
+          environment: "staging",
+          production: false,
+          state: "failure",
+        }),
+      ),
+    );
+    expect(row?.parts?.at(-1)).toEqual({
+      type: "group",
+      gap: 1,
+      align: "center",
+      children: [
+        { type: "icon", icon: "rocket", tone: "danger" },
+        { type: "steps", steps: ["danger", "success"] },
+      ],
+    });
+    // Merged: a click opens the panel at where it runs.
+    expect(row?.section).toBe("deployments");
+  });
+
+  it("shows where it runs without a pull request too", () => {
+    const row = pullRequestRow(entries(deployment({ state: "pending" })));
+    expect(row?.section).toBe("deployments");
+    expect(row?.parts?.at(-1)).toMatchObject({
+      children: [{ icon: "rocket", tone: "info" }, { steps: ["running"] }],
+    });
   });
 });

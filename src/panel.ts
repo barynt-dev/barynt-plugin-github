@@ -1,4 +1,8 @@
-import { BaryntError, type Plugin } from "@barynt/plugin-sdk";
+import {
+  BaryntError,
+  type ModalOptions,
+  type Plugin,
+} from "@barynt/plugin-sdk";
 import {
   badge,
   button,
@@ -19,6 +23,7 @@ import {
   userNote,
 } from "@barynt/plugin-sdk/ui";
 import { branchChoice, runWorkflowAction } from "./actions";
+import { deploymentParts } from "./deployments";
 import {
   type BranchRow,
   COMMITS_SHOWN,
@@ -34,6 +39,7 @@ import type { PullRequest } from "./entries";
 import { branchSettings, canReach, proposedName } from "./github";
 import { t } from "./i18n";
 import { prLook } from "./row";
+import { ago } from "./time";
 
 // The "Development" panel in an issue's sidebar (BARY-229): its branch,
 // its pull requests with their checks, size and reviews, and the commits
@@ -41,14 +47,6 @@ import { prLook } from "./row";
 // GitHub, with the person's own token.
 
 type Api = Plugin["api"];
-
-const ago = (iso: string) => {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 60) return t("minutesAgo", { count: Math.max(minutes, 1) });
-  if (minutes < 60 * 24)
-    return t("hoursAgo", { count: Math.round(minutes / 60) });
-  return t("daysAgo", { count: Math.round(minutes / 60 / 24) });
-};
 
 /** Who reviewed, from GitHub — or why it can't say. */
 async function reviews(api: Api, pr: PullRequest): Promise<HTMLElement> {
@@ -374,6 +372,9 @@ export async function renderDevelopment(
   /** The part a board's badge asked for (`context.focus`) — unfolded,
    *  whatever was kept. */
   focus?: string,
+  /** Opens a window of Barynt's with a view of the plugin
+   *  (`Plugin.openModal`) — an environment's details. */
+  openModal: (options: ModalOptions) => void = () => {},
 ): Promise<void> {
   // While GitHub's state loads: a skeleton where it'll be.
   if (!el.firstChild) {
@@ -392,7 +393,8 @@ export async function renderDevelopment(
     dev.branchView.others.length === 0 &&
     dev.branchView.done.length === 0 &&
     dev.pullRequests.length === 0 &&
-    dev.commits.length === 0
+    dev.commits.length === 0 &&
+    dev.deployments.length === 0
   ) {
     el.replaceChildren(await startHere(api, issueId, run, openSettings));
     return;
@@ -689,43 +691,10 @@ export async function renderDevelopment(
     }),
   );
 
-  if (dev.deployments.length > 0) {
-    parts.push(
-      sectionHeader({
-        size: "sm",
-        title: t("deployments"),
-        icon: "rocket",
-        count: dev.deployments.length,
-      }),
-      list({
-        items: dev.deployments.map((d) => ({
-          title: d.environment,
-          icon: d.production ? ("rocket" as const) : ("globe" as const),
-          meta: [d.repo, ago(d.at)].join(" · "),
-          ...(d.url && { href: d.url }),
-          aside: [
-            ...(d.production
-              ? [badge({ text: t("production"), tone: "primary" })]
-              : []),
-            badge({
-              text:
-                d.state === "success"
-                  ? t("deployedOk")
-                  : d.state === "failure"
-                    ? t("deployFailed")
-                    : t("deploying"),
-              tone:
-                d.state === "success"
-                  ? "success"
-                  : d.state === "failure"
-                    ? "danger"
-                    : "neutral",
-            }),
-          ],
-        })),
-      }),
-    );
-  }
+  // Where it runs: its environments, production last (BARY-238).
+  parts.push(
+    ...(await deploymentParts(api, dev.deployments, dev.commits, openModal)),
+  );
 
   // In the issue's sidebar, without a box: edge to edge with its fields,
   // the quiet heads a little closer to what they head.

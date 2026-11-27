@@ -5,7 +5,8 @@ import type {
   RowPart,
   StepState,
 } from "@barynt/plugin-sdk";
-import type { CheckState, Checks, PullRequest } from "./entries";
+import { inOrder } from "./development";
+import type { CheckState, Checks, Deployment, PullRequest } from "./entries";
 import { sortEntries } from "./entries";
 import { t } from "./i18n";
 
@@ -92,6 +93,39 @@ function checkParts(checks: Checks | undefined): RowPart[] {
   ];
 }
 
+const DEPLOY_STEP = {
+  success: "success",
+  failure: "danger",
+  pending: "running",
+  inactive: "pending",
+} as const satisfies Record<Deployment["state"], StepState>;
+
+/** Where it runs: a rocket and a bar per environment, production last —
+ *  in the tone of the furthest one that's live, else of the latest. */
+function deploymentParts(deployments: Deployment[]): RowPart[] {
+  if (deployments.length === 0) return [];
+  const ordered = inOrder(deployments).slice(-4);
+  const steps = ordered.map((d) => DEPLOY_STEP[d.state]);
+  const tone: BadgeTone = ordered.some((d) => d.state === "failure")
+    ? "danger"
+    : ordered.some((d) => d.state === "pending")
+      ? "info"
+      : ordered.at(-1)?.state === "success"
+        ? "success"
+        : "neutral";
+  return [
+    {
+      type: "group",
+      gap: 1,
+      align: "center",
+      children: [
+        { type: "icon", icon: "rocket", tone },
+        { type: "steps", steps },
+      ],
+    },
+  ];
+}
+
 /** Where its review stands, in a word: changes wanted, approved, or
  *  waiting — a draft says it's one. */
 function reviewParts(pr: PullRequest): RowPart[] {
@@ -137,9 +171,9 @@ function reviewParts(pr: PullRequest): RowPart[] {
 export function pullRequestRow(
   raw: { key: string; value: unknown }[],
 ): Badge | null {
-  const { pullRequests, checks } = sortEntries(raw);
+  const { pullRequests, checks, deployments } = sortEntries(raw);
   const pr = shownPullRequest(pullRequests);
-  if (!pr) return null;
+  if (!pr) return deploymentRow(deployments);
   const look = prLook(pr);
   const open = pr.state === "open" || pr.state === "draft";
   const ofBranch = checks.find(
@@ -177,19 +211,48 @@ export function pullRequestRow(
           },
         ]),
     { type: "spacer" },
-    // The checks on the right — how many failed of how many.
+    // The checks on the right — how many failed of how many — then
+    // where it runs.
     ...(open ? checkParts(ofBranch) : []),
+    ...(open && ofBranch?.runs.length && deployments.length
+      ? [{ type: "divider" as const }]
+      : []),
+    ...deploymentParts(deployments),
   ];
   return {
     badge: "pull-request",
     kind: "row",
     // A click opens the issue at this panel (BARY-229).
     panel: "development",
-    // …at its pull requests, unfolded.
-    section: "pull-requests",
+    // …at its pull requests, unfolded — or, merged, where it runs.
+    section: !open && deployments.length ? "deployments" : "pull-requests",
     text: `#${pr.number} ${look.text}`,
     tone: look.tone,
     tooltip: `${pr.repo}#${pr.number}: ${pr.title}`.slice(0, 120),
     parts,
+  };
+}
+
+/** Without a pull request, deployed all the same (a commit of `main`
+ *  naming it): just where it runs. */
+function deploymentRow(deployments: Deployment[]): Badge | null {
+  const parts = deploymentParts(deployments);
+  if (parts.length === 0) return null;
+  const latest = inOrder(deployments).at(-1);
+  return {
+    badge: "pull-request",
+    kind: "row",
+    panel: "development",
+    section: "deployments",
+    text: t("deployments"),
+    tone: "neutral",
+    tooltip: latest
+      ? `${latest.environment}: ${latest.state}`
+      : t("deployments"),
+    parts: [
+      { type: "text", text: t("deployments"), size: "xs", tone: "subtle" },
+      { type: "spacer" },
+      ...parts,
+    ],
   };
 }

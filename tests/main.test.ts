@@ -206,6 +206,99 @@ describe("the GitHub plugin", () => {
     expect(await folds("pull-requests")).toEqual([true, true, false]);
   });
 
+  it("draws where it runs as stops, and opens one's window", async () => {
+    const deploy = {
+      kind: "deployment",
+      repo: "acme/web",
+      environment: "staging",
+      production: false,
+      id: 7,
+      state: "success",
+      ref: "main",
+      sha: "ccc1111aaaa",
+      url: "https://staging.acme.dev",
+      logUrl: "https://github.com/acme/web/actions/runs/70",
+      workflow: "Deploy",
+      runId: 70,
+      creator: "ada",
+      at: "2026-11-20T10:00:00Z",
+      history: [
+        {
+          id: 6,
+          state: "inactive",
+          ref: "main",
+          sha: "bbb2222",
+          url: null,
+          logUrl: null,
+          at: "2026-11-19T10:00:00Z",
+        },
+      ],
+    };
+    const handlers = {
+      "issueData.list": () => ({
+        "i-1": [{ key: "d", value: deploy, updatedAt: deploy.at }],
+      }),
+      // The repository deploys to production too — not reached yet.
+      "net.fetch": (() => ({
+        status: 200,
+        headers: {},
+        text: JSON.stringify([
+          { environment: "production", production_environment: true },
+          { environment: "staging" },
+        ]),
+      })) as never,
+    };
+    const root = document.createElement("div") as unknown as HTMLElement;
+    const host = createTestHost({
+      root,
+      context: {
+        slot: { kind: "issuePanel", id: "development" },
+        issueId: "i-1",
+      },
+      handlers,
+    });
+    await loadPlugin(GitHub, host);
+    await new Promise((r) => setTimeout(r, 0));
+    const stops = [...root.querySelectorAll(".bui-station")];
+    expect(
+      stops.map((s) => s.querySelector(".bui-station-label")?.textContent),
+    ).toEqual(["staging", "production"]);
+    expect(stops.map((s) => (s as HTMLElement).dataset.state)).toEqual([
+      "success",
+      "pending",
+    ]);
+    expect(
+      stops[0].querySelector("a.bui-station-link")?.getAttribute("href"),
+    ).toBe("https://staging.acme.dev/");
+    (stops[0].querySelector("button") as HTMLButtonElement).click();
+    expect(host.openedModals).toEqual([
+      {
+        view: "deployment",
+        title: "staging",
+        data: { repo: "acme/web", environment: "staging" },
+      },
+    ]);
+
+    // The window: details, the history, and its buttons.
+    const inModal = document.createElement("div") as unknown as HTMLElement;
+    const modalHost = createTestHost({
+      root: inModal,
+      context: {
+        slot: { kind: "issuePanel", id: "development" },
+        issueId: "i-1",
+        modal: host.openedModals[0],
+      },
+      handlers,
+    });
+    await loadPlugin(GitHub, modalHost);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(inModal.querySelectorAll(".bui-list-item")).toHaveLength(2);
+    expect(inModal.textContent).toContain("Deploy · ");
+    expect(
+      [...inModal.querySelectorAll(".bui-button")].map((b) => b.textContent),
+    ).toEqual(["Deploy again", "Log", "Open app"]);
+  });
+
   it("with nothing linked, says where to start", async () => {
     const panel = (
       repositories: string[],

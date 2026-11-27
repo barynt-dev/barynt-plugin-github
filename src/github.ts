@@ -166,6 +166,58 @@ export async function runWorkflow(
   );
 }
 
+/**
+ * Runs a deployment's workflow run again — every job, as GitHub's "Re-run
+ * all jobs" — with the person's token or the connection's app (Actions:
+ * write). Throws a `BranchError` that says what to do.
+ */
+export async function rerunWorkflow(
+  api: Api,
+  repo: string,
+  runId: number,
+): Promise<void> {
+  const res = await github<{ message?: string }>(
+    api,
+    `/repos/${repo}/actions/runs/${runId}/rerun`,
+    { method: "POST" },
+  );
+  if (res.status === 201) return;
+  throw new BranchError(
+    res.status === 403
+      ? /month|too old/i.test(res.data?.message ?? "")
+        ? t("rerunTooOld")
+        : t("workflowNoRight")
+      : res.status === 404
+        ? t("rerunGone")
+        : t("answered", { status: res.status }),
+  );
+}
+
+/** The environments a repository has deployed to lately — production and
+ *  staging, say, that an issue hasn't reached yet. Empty when GitHub
+ *  doesn't answer. */
+export async function recentEnvironments(
+  api: Api,
+  repo: string,
+): Promise<{ environment: string; production: boolean }[]> {
+  const res = await github<
+    { environment?: string; production_environment?: boolean }[]
+  >(api, `/repos/${repo}/deployments?per_page=50`).catch(() => null);
+  if (res?.status !== 200 || !Array.isArray(res.data)) return [];
+  const seen = new Map<string, boolean>();
+  for (const d of res.data)
+    if (typeof d.environment === "string" && !seen.has(d.environment))
+      seen.set(
+        d.environment,
+        d.production_environment ??
+          d.environment.toLowerCase() === "production",
+      );
+  return [...seen].map(([environment, production]) => ({
+    environment,
+    production,
+  }));
+}
+
 /** Git's rules for a branch's name, the ones a person runs into. */
 export function validBranchName(name: string): boolean {
   return (

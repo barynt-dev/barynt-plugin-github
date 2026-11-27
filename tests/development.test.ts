@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
   development,
+  lagging,
   lastComment,
   latestReviews,
   prProgress,
   reviewer,
+  stationRank,
   withoutIssueKey,
 } from "../src/development";
 import type { PullRequest } from "../src/entries";
@@ -133,29 +135,93 @@ describe("latestReviews()", () => {
 });
 
 describe("deployments (BARY-238)", () => {
-  it("lists where it went, production first", () => {
-    const deploy = (environment: string, production: boolean, at: string) => ({
-      key: `deploy:${environment}`,
-      value: {
-        kind: "deployment",
-        repo: "acme/web",
-        environment,
-        production,
-        state: "success",
-        ref: "main",
-        sha: "abc",
-        url: null,
-        at,
-      },
-    });
+  const deploy = (
+    environment: string,
+    production: boolean,
+    at: string,
+    sha = "abc",
+    repo = "acme/web",
+  ) => ({
+    key: `deploy:${environment}`,
+    value: {
+      kind: "deployment",
+      repo,
+      environment,
+      production,
+      state: "success",
+      ref: "main",
+      sha,
+      url: null,
+      at,
+    },
+  });
+
+  it("lists where it went in the order a change goes through", () => {
     const dev = development([
-      deploy("staging", false, "2026-11-20T10:00:00Z"),
       deploy("production", true, "2026-11-19T10:00:00Z"),
+      deploy("staging", false, "2026-11-20T10:00:00Z"),
+      deploy("preview-web-42", false, "2026-11-20T11:00:00Z"),
     ]);
     expect(dev.deployments.map((d) => d.environment)).toEqual([
-      "production",
+      "preview-web-42",
       "staging",
+      "production",
     ]);
+  });
+
+  it("ranks environments by their names", () => {
+    const rank = (environment: string, production = false) =>
+      stationRank({ environment, production });
+    expect(rank("Preview")).toBeLessThan(rank("test"));
+    expect(rank("test")).toBeLessThan(rank("staging"));
+    expect(rank("uat")).toBe(rank("staging"));
+    expect(rank("staging")).toBeLessThan(rank("live", true));
+    expect(rank("prod")).toBe(4);
+  });
+
+  it("says when one further along runs an older version", () => {
+    const deployments = development([
+      deploy("staging", false, "2026-11-20T10:00:00Z", "ccc1111"),
+      deploy("production", true, "2026-11-19T10:00:00Z", "aaa1111"),
+    ]).deployments;
+    const commits = [
+      { sha: "ccc1111" },
+      { sha: "bbb1111" },
+      { sha: "aaa1111" },
+    ];
+    expect(lagging(deployments, commits)).toMatchObject({
+      behind: { environment: "production" },
+      ahead: { environment: "staging" },
+      commits: 2,
+    });
+    // Not among the commits: no count.
+    expect(lagging(deployments, [])?.commits).toBeNull();
+    // Production deployed after staging, or the same version: in step.
+    expect(
+      lagging(
+        development([
+          deploy("staging", false, "2026-11-19T10:00:00Z", "ccc1111"),
+          deploy("production", true, "2026-11-20T10:00:00Z", "aaa1111"),
+        ]).deployments,
+        commits,
+      ),
+    ).toBeNull();
+    // Another repository's environments don't compare.
+    expect(
+      lagging(
+        development([
+          deploy("staging", false, "2026-11-20T10:00:00Z", "ccc1111"),
+          deploy(
+            "production",
+            true,
+            "2026-11-19T10:00:00Z",
+            "aaa1111",
+            "acme/api",
+          ),
+        ]).deployments,
+        commits,
+      ),
+    ).toBeNull();
   });
 });
 

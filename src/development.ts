@@ -49,7 +49,8 @@ export interface Development {
     author: string | null;
     at: string;
   }[];
-  /** Where it was deployed, production first, then newest. */
+  /** Where it was deployed, in the order a change goes through — a
+   *  preview first, production last. */
   deployments: Deployment[];
 }
 
@@ -102,9 +103,7 @@ export function development(
       author: c.author,
       at: c.at,
     })),
-    deployments: [...deployments].sort(
-      (a, b) => Number(b.production) - Number(a.production),
-    ),
+    deployments: inOrder(deployments),
   };
 }
 
@@ -227,4 +226,57 @@ export function prProgress(
 export function withoutIssueKey(title: string): string {
   const rest = title.replace(/^\s*\[?[A-Z][A-Z0-9_]*-\d+\]?\s*[:\-–—]?\s*/, "");
   return rest.length > 0 ? rest : title;
+}
+
+/** Where an environment stands on the way to production: a preview first,
+ *  then tests, then staging, production last — by its name, GitHub has no
+ *  order. */
+export function stationRank(d: {
+  environment: string;
+  production: boolean;
+}): number {
+  const name = d.environment.toLowerCase();
+  if (d.production || /\bprod(uction)?\b|^live$/.test(name)) return 4;
+  if (/stag|uat|\bqa\b|pre-?prod|accept/.test(name)) return 3;
+  if (/test|integration|\bci\b/.test(name)) return 2;
+  if (/preview|review|\bdev|feature|\bpr\b|pr-\d/.test(name)) return 1;
+  return 2;
+}
+
+/** Environments in the order a change goes through; one repository's
+ *  together, then by name. */
+export function inOrder<
+  T extends { environment: string; production: boolean; repo: string },
+>(list: T[]): T[] {
+  return [...list].sort(
+    (a, b) =>
+      stationRank(a) - stationRank(b) ||
+      a.environment.localeCompare(b.environment) ||
+      a.repo.localeCompare(b.repo),
+  );
+}
+
+/** An environment further along running an older version than one
+ *  before it — production behind staging, say — and by how many commits,
+ *  when the issue's commits tell. The one furthest along first. */
+export function lagging(
+  deployments: Deployment[],
+  commits: { sha: string }[],
+): { behind: Deployment; ahead: Deployment; commits: number | null } | null {
+  const live = inOrder(deployments).filter(
+    (d) => d.state === "success" && d.sha,
+  );
+  for (let j = live.length - 1; j > 0; j--)
+    for (let i = j - 1; i >= 0; i--) {
+      const [ahead, behind] = [live[i], live[j]];
+      if (ahead.repo !== behind.repo || ahead.sha === behind.sha) continue;
+      if (stationRank(ahead) === stationRank(behind)) continue;
+      if (ahead.at <= behind.at) continue;
+      const at = (sha: string | null) =>
+        commits.findIndex((c) => sha && c.sha.startsWith(sha.slice(0, 7)));
+      const a = at(ahead.sha);
+      const b = at(behind.sha);
+      return { behind, ahead, commits: a >= 0 && b > a ? b - a : null };
+    }
+  return null;
 }
