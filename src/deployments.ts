@@ -6,9 +6,11 @@ import {
   checkbox,
   keyValue,
   type LogLine,
+  type LogSection,
   link,
   list,
   logView,
+  menuButton,
   navList,
   notice,
   type PipelineStation,
@@ -947,7 +949,7 @@ async function jobsBox(
     }, POLL_MS);
 }
 
-const TIME = /^\uFEFF?\d{4}-\d\d-\d\dT(\d\d:\d\d:\d\d)(\.\d+)?Z ?/;
+const TIME = /^\uFEFF?(\d{4}-\d\d-\d\dT(\d\d:\d\d:\d\d)(\.\d+)?Z) ?/;
 const ANSI = /\u001b\[[\d;]*[A-Za-z]/g;
 
 /** What a line says, by its words — when GitHub didn't mark it. */
@@ -969,6 +971,52 @@ function toneOf(text: string): LogLine["tone"] {
   return undefined;
 }
 
+/** GitHub's log, line by line: each as shown, and when it was written. */
+function readLog(raw: string): { line: LogLine; at: number | null }[] {
+  const out: { line: LogLine; at: number | null }[] = [];
+  for (const source of raw.split(/\r?\n/)) {
+    const m = TIME.exec(source);
+    const at = m ? Date.parse(m[1]) : null;
+    const stamp = m ? { time: m[2] } : {};
+    const coloured = source.replace(TIME, "");
+    const bare = coloured.replace(ANSI, "");
+    if (bare.startsWith("##[endgroup]")) continue;
+    const marked =
+      /^##\[(group|error|warning|debug|command|notice)\](.*)$/.exec(bare);
+    let line: LogLine;
+    if (marked) {
+      const [, kind, rest] = marked;
+      line =
+        kind === "group"
+          ? { text: rest, heading: true, ...stamp }
+          : kind === "error"
+            ? { text: rest, tone: "danger", ...stamp }
+            : kind === "warning"
+              ? { text: rest, tone: "warning", ...stamp }
+              : { text: rest, tone: "muted", ...stamp };
+    } else if (bare.startsWith("[command]"))
+      line = { text: bare.slice(9), tone: "muted", ...stamp };
+    else {
+      const parts = coloured.includes("\u001b")
+        ? parseAnsi(coloured)
+        : undefined;
+      const styled = parts?.some((p) => p.color || p.bold);
+      // Coloured by the tool already (a script GitHub echoes in cyan): its
+      // colours say it, not its words.
+      const tone = styled ? undefined : toneOf(bare);
+      line = {
+        text: bare,
+        ...(styled && { parts }),
+        ...(tone && { tone }),
+        ...stamp,
+      };
+    }
+    out.push({ line, at });
+  }
+  while (out.length && !out[out.length - 1].line.text) out.pop();
+  return out;
+}
+
 /**
  * GitHub's log as lines: the time apart, the terminal's colours kept,
  * `##[group]` a heading the lines after fold under, `##[error]` and
@@ -976,44 +1024,60 @@ function toneOf(text: string): LogLine["tone"] {
  * marked by their words. Commands quiet.
  */
 export function logLines(raw: string): LogLine[] {
-  const out: LogLine[] = [];
-  for (const line of raw.split(/\r?\n/)) {
-    const time = TIME.exec(line)?.[1];
-    const coloured = line.replace(TIME, "");
-    const bare = coloured.replace(ANSI, "");
-    if (bare.startsWith("##[endgroup]")) continue;
-    const stamp = time ? { time } : {};
-    const m = /^##\[(group|error|warning|debug|command|notice)\](.*)$/.exec(
-      bare,
-    );
-    if (m) {
-      const [, kind, rest] = m;
-      if (kind === "group") out.push({ text: rest, heading: true, ...stamp });
-      else if (kind === "error")
-        out.push({ text: rest, tone: "danger", ...stamp });
-      else if (kind === "warning")
-        out.push({ text: rest, tone: "warning", ...stamp });
-      else out.push({ text: rest, tone: "muted", ...stamp });
-      continue;
-    }
-    if (bare.startsWith("[command]")) {
-      out.push({ text: bare.slice(9), tone: "muted", ...stamp });
-      continue;
-    }
-    const parts = coloured.includes("\u001b") ? parseAnsi(coloured) : undefined;
-    const styled = parts?.some((p) => p.color || p.bold);
-    // Coloured by the tool already (a script GitHub echoes in cyan): its
-    // colours say it, not its words.
-    const tone = styled ? undefined : toneOf(bare);
-    out.push({
-      text: bare,
-      ...(styled && { parts }),
-      ...(tone && { tone }),
-      ...stamp,
-    });
+  return readLog(raw).map((l) => l.line);
+}
+
+/**
+ * A job's log by its steps, as GitHub shows it. GitHub starts each step's
+ * lines with `##[group]Run …` (or `Post …`): the lines before the first
+ * are setting up the job, each marker moves on to the next step that ran,
+ * and what comes after the last step ended is completing the job. A step
+ * that didn't run has no lines.
+ */
+export function stepSections(raw: string, steps: Job["steps"]): LogSection[] {
+  const ordered = [...steps].sort((a, b) => a.number - b.number);
+  const ran = ordered.filter((s) => s.startedAt && s.conclusion !== "skipped");
+  const lines = new Map<number, LogLine[]>(ordered.map((s) => [s.number, []]));
+  // The last step that ran is completing the job when there's more than
+  // one; its lines come after the step before it ended.
+  const closing = ran.length > 2 ? ran[ran.length - 1] : null;
+  const lastWork = closing ? ran[ran.length - 2] : null;
+  const workEnd = lastWork?.completedAt
+    ? // To the second: the whole of the second it ended in.
+      Math.floor(Date.parse(lastWork.completedAt) / 1000) * 1000 + 1000
+    : null;
+  let at = 0;
+  for (const { line, at: written } of readLog(raw)) {
+    const marker = line.heading && /^(Run|Post) /.test(line.text);
+    const limit = closing ? ran.length - 2 : ran.length - 1;
+    if (marker && at < limit) at++;
+    else if (
+      closing &&
+      written !== null &&
+      workEnd !== null &&
+      written >= workEnd &&
+      at >= ran.length - 2
+    )
+      at = ran.length - 1;
+    const step = ran[at];
+    if (step) lines.get(step.number)?.push(line);
+    // A step that failed ends with its exit code: what follows completes
+    // the job.
+    if (
+      closing &&
+      line.tone === "danger" &&
+      /^Process completed with exit code/.test(line.text)
+    )
+      at = ran.length - 1;
   }
-  while (out.length && !out[out.length - 1].text) out.pop();
-  return out;
+  return ordered.map((step) => ({
+    title: step.name,
+    state: jobStep(step.status, step.conclusion),
+    ...(duration(step.startedAt, step.completedAt) && {
+      meta: duration(step.startedAt, step.completedAt),
+    }),
+    lines: lines.get(step.number) ?? [],
+  }));
 }
 
 /** A job's state as a badge. */
@@ -1030,87 +1094,67 @@ function jobLook(job: Job) {
           : { text: t("deployQueued"), tone: "neutral" as const };
 }
 
-/** What a log's window is told: which job. */
+/** What a log's window is told: which job, of which deployment. */
 export interface LogWindow {
   repo: string;
   jobId: number;
   name: string;
+  /** Where it ran — the stage, the environment. */
+  context?: string;
 }
 
-/** The buttons for a log: the whole of it, raw, saved, copied, GitHub. */
-function logTools(
+/** The rarer things to do with a log, in a menu: raw, saved, copied, on
+ *  GitHub. */
+function logMenu(
   api: Api,
   repo: string,
   job: { id: number; name: string; url: string | null },
   logText: string,
   host: WindowHost,
-  options: { full?: boolean },
-): HTMLElement[] {
+): HTMLElement {
   const fileName = `${job.name.replace(/[^\w.-]+/g, "-").replace(/^-|-$/g, "") || "job"}-${job.id}.log`;
-  return [
-    ...(options.full
-      ? [
-          button({
-            label: t("fullLog"),
-            icon: "chevron-up",
-            variant: "secondary",
-            size: "sm",
-            onClick: () =>
-              host.openModal({
-                view: "log",
-                title: job.name,
-                size: "xl",
-                data: { repo, jobId: job.id, name: job.name },
-              }),
-          }),
-        ]
-      : []),
-    button({
-      label: t("rawLog"),
-      icon: "file",
-      variant: "secondary",
-      size: "sm",
-      onClick: async () => {
-        // The link works a minute: asked for on the click.
-        const url = await logDownloadUrl(api, repo, { jobId: job.id });
-        if (url) window.open(url, "_blank", "noopener");
-        else toast(t("logDenied"), { tone: "danger" });
+  return menuButton({
+    label: t("logActions"),
+    items: [
+      {
+        label: t("rawLog"),
+        icon: "file",
+        onClick: async () => {
+          // The link works a minute: asked for on the click.
+          const url = await logDownloadUrl(api, repo, { jobId: job.id });
+          if (url) window.open(url, "_blank", "noopener");
+          else toast(t("logDenied"), { tone: "danger" });
+        },
       },
-    }),
-    ...(logText
-      ? [
-          button({
-            label: t("downloadLog"),
-            icon: "arrow-down",
-            variant: "secondary",
-            size: "sm",
-            onClick: () => host.download({ name: fileName, text: logText }),
-          }),
-          button({
-            label: t("copyLog"),
-            icon: "copy",
-            variant: "secondary",
-            size: "sm",
-            onClick: async () => {
-              await navigator.clipboard.writeText(logText).catch(() => {});
-              toast(t("copiedLog"));
+      ...(logText
+        ? [
+            {
+              label: t("downloadLog"),
+              icon: "arrow-down" as const,
+              onClick: () => host.download({ name: fileName, text: logText }),
             },
-          }),
-        ]
-      : []),
-    ...(job.url
-      ? [
-          button({
-            label: t("onGitHub"),
-            icon: "external-link",
-            variant: "secondary",
-            size: "sm",
-            onClick: () =>
-              void window.open(job.url ?? "", "_blank", "noopener"),
-          }),
-        ]
-      : []),
-  ];
+            {
+              label: t("copyLog"),
+              icon: "copy" as const,
+              onClick: async () => {
+                await navigator.clipboard.writeText(logText).catch(() => {});
+                toast(t("copiedLog"));
+              },
+            },
+          ]
+        : []),
+      ...(job.url
+        ? [
+            {
+              label: t("onGitHub"),
+              icon: "external-link" as const,
+              onClick: () =>
+                void window.open(job.url ?? "", "_blank", "noopener"),
+            },
+          ]
+        : []),
+    ],
+  });
 }
 
 const logMissing = (missing: "running" | "gone" | "denied" | "large") =>
@@ -1127,8 +1171,62 @@ const logMissing = (missing: "running" | "gone" | "denied" | "large") =>
             : t("logDenied"),
   });
 
-/** One job: its steps, and its log once it has one — asked again while it
- *  runs. Back leads to the deployment. */
+/** Which job this is, and where: its name and state, then the workflow,
+ *  where it ran, how long — and on the right what to do with its log. */
+function jobHead(
+  job: Job,
+  where: string | null,
+  workflow: string | null,
+  actions: HTMLElement[] = [],
+): HTMLElement {
+  const title = row(
+    text({ text: job.name, weight: "semibold", size: "base" }),
+    badge(jobLook(job)),
+  );
+  title.style.alignItems = "center";
+  title.style.flexWrap = "wrap";
+  const facts = [
+    t("jobLabel"),
+    workflow,
+    where,
+    duration(job.startedAt, job.completedAt),
+  ].filter(Boolean);
+  const left = stack(
+    title,
+    text({ text: facts.join(" · "), size: "xs", tone: "subtle" }),
+  );
+  left.style.gap = "0.25rem";
+  left.style.flex = "1";
+  left.style.minWidth = "0";
+  const right = row(...actions);
+  right.style.alignItems = "center";
+  const head = row(left, right);
+  head.style.alignItems = "flex-start";
+  head.style.flexWrap = "wrap";
+  return head;
+}
+
+/** A job's log by its steps — or, without them, all of it. */
+function jobLogView(log: string, job: Job, label: string): HTMLElement {
+  return job.steps.length
+    ? logView({
+        sections: stepSections(log, job.steps),
+        fold: true,
+        tools: true,
+        maxHeight: 420,
+        label,
+      })
+    : logView({
+        lines: logLines(log),
+        fold: true,
+        tools: true,
+        maxHeight: 420,
+        label,
+      });
+}
+
+/** One job: which one, where; its log by steps once it has one — its
+ *  steps while it runs, asked again. Back leads to the deployment. */
 export async function renderLog(
   api: Api,
   el: HTMLElement,
@@ -1138,45 +1236,58 @@ export async function renderLog(
   host: WindowHost,
 ): Promise<void> {
   const state = jobStep(job.status, job.conclusion);
-  const head = row(
-    backButton(back),
-    text({ text: job.name, weight: "semibold", size: "sm" }),
-    badge(jobLook(job)),
-  );
-  head.style.alignItems = "center";
-  head.style.flexWrap = "wrap";
-  const steps = stepList({
-    steps: job.steps.map((s) => ({
-      label: s.name,
-      state: jobStep(s.status, s.conclusion),
-      meta: duration(s.startedAt, s.completedAt),
-    })),
-  });
+  const where = d.workflowFile ?? d.environment;
+  const backRow = row(backButton(back));
+  const headSlot = stack(jobHead(job, where, d.workflow ?? null));
   const logSlot = stack(skeleton({ lines: 4 }));
-  const toolSlot = stack();
-  const body = stack(head, steps, toolSlot, logSlot);
+  const body = stack(backRow, headSlot, logSlot);
   body.style.gap = "0.75rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);
 
-  let logText = "";
   if (job.status === "completed") {
     const log = await jobLog(api, d.repo, job.id);
     if (!logSlot.isConnected) return;
-    if ("text" in log) {
-      logText = log.text;
-      logSlot.replaceChildren(
-        logView({
-          lines: logLines(log.text),
-          maxHeight: 360,
-          label: job.name,
-          fold: true,
-          tools: true,
-        }),
-      );
-    } else logSlot.replaceChildren(logMissing(log.missing));
+    const logText = "text" in log ? log.text : "";
+    const actions = [
+      ...(logText
+        ? [
+            button({
+              label: t("fullLog"),
+              variant: "secondary",
+              size: "sm",
+              onClick: () =>
+                host.openModal({
+                  view: "log",
+                  title: `${job.name} — ${where}`,
+                  size: "xl",
+                  data: {
+                    repo: d.repo,
+                    jobId: job.id,
+                    name: job.name,
+                    context: [d.workflow, where].filter(Boolean).join(" · "),
+                  },
+                }),
+            }),
+          ]
+        : []),
+      logMenu(api, d.repo, job, logText, host),
+    ];
+    headSlot.replaceChildren(jobHead(job, where, d.workflow ?? null, actions));
+    logSlot.replaceChildren(
+      "text" in log
+        ? jobLogView(log.text, job, job.name)
+        : logMissing(log.missing),
+    );
   } else {
     logSlot.replaceChildren(
+      stepList({
+        steps: job.steps.map((s) => ({
+          label: s.name,
+          state: jobStep(s.status, s.conclusion),
+          meta: duration(s.startedAt, s.completedAt),
+        })),
+      }),
       notice({ tone: "info", compact: true, text: t("logWhileRunning") }),
     );
     // Its steps go on: ask again.
@@ -1188,13 +1299,6 @@ export async function renderLog(
     }, POLL_MS);
   }
 
-  if (job.status === "completed") {
-    const tools = row(
-      ...logTools(api, d.repo, job, logText, host, { full: logText !== "" }),
-    );
-    tools.style.flexWrap = "wrap";
-    toolSlot.replaceChildren(tools);
-  }
   if (state === "danger")
     body.append(
       footOf([
@@ -1208,8 +1312,8 @@ export async function renderLog(
     );
 }
 
-/** A job's whole log, in a wide window of its own: every line, folded by
- *  its parts, to search; raw, saved, copied. */
+/** A job's whole log, in a wide window of its own: by its steps, all of
+ *  them there to open; raw, saved, copied. */
 export async function renderFullLog(
   api: Api,
   el: HTMLElement,
@@ -1221,7 +1325,7 @@ export async function renderFullLog(
     getJob(api, view.repo, view.jobId),
     jobLog(api, view.repo, view.jobId),
   ]);
-  const shown = job ?? {
+  const shown: Job = job ?? {
     id: view.jobId,
     name: view.name,
     url: null,
@@ -1232,22 +1336,25 @@ export async function renderFullLog(
     steps: [],
   };
   const logText = "text" in log ? log.text : "";
-  const tools = row(
-    ...(job ? [badge(jobLook(job))] : []),
-    ...logTools(api, view.repo, shown, logText, host, {}),
-  );
-  tools.style.flexWrap = "wrap";
-  tools.style.alignItems = "center";
+  const actions = [logMenu(api, view.repo, shown, logText, host)];
   const body = stack(
-    tools,
+    jobHead(shown, view.context ?? null, null, actions),
     "text" in log
-      ? logView({
-          lines: logLines(log.text),
-          maxHeight: "none",
-          label: view.name,
-          fold: true,
-          tools: true,
-        })
+      ? shown.steps.length
+        ? logView({
+            sections: stepSections(log.text, shown.steps),
+            fold: true,
+            tools: true,
+            maxHeight: "none",
+            label: view.name,
+          })
+        : logView({
+            lines: logLines(log.text),
+            fold: true,
+            tools: true,
+            maxHeight: "none",
+            label: view.name,
+          })
       : logMissing(log.missing),
   );
   body.style.gap = "0.75rem";

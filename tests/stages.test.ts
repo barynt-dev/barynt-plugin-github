@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { groupJobs, logLines } from "../src/deployments";
+import { groupJobs, logLines, stepSections } from "../src/deployments";
 import type { Deployment } from "../src/entries";
 import type { Job } from "../src/github";
 import {
@@ -259,5 +259,44 @@ describe("a run's jobs and logs", () => {
     expect(tone("24 passed (31s)")).toBe("success");
     expect(tone("0 errors")).toBe("success");
     expect(tone("Installing dependencies")).toBeUndefined();
+  });
+
+  it("splits a job's log by its steps, as GitHub marks them", () => {
+    const step = (
+      number: number,
+      name: string,
+      at: string | null,
+      conclusion = "success",
+    ) => ({
+      name,
+      number,
+      status: "completed",
+      conclusion,
+      startedAt: at && `2026-11-27T10:00:${at}Z`,
+      completedAt: at && `2026-11-27T10:00:${at}Z`,
+    });
+    // All in one second, as a short job is: the markers decide.
+    const sections = stepSections(
+      [
+        "2026-11-27T10:00:01.1000000Z Current runner version: '2.338.2'",
+        "2026-11-27T10:00:01.2000000Z ##[group]Run prisma migrate deploy",
+        "2026-11-27T10:00:01.3000000Z ##[error]boom",
+        "2026-11-27T10:00:01.4000000Z ##[error]Process completed with exit code 1.",
+        "2026-11-27T10:00:01.5000000Z Evaluate and set environment url",
+        "2026-11-27T10:00:02.5000000Z Cleaning up orphan processes",
+      ].join("\n"),
+      [
+        step(4, "Complete job", "02"),
+        step(1, "Set up job", "01"),
+        step(2, "Run prisma migrate deploy", "01", "failure"),
+        step(3, "Deploy", null, "skipped"),
+      ],
+    );
+    expect(sections.map((x) => [x.title, x.state, x.lines.length])).toEqual([
+      ["Set up job", "success", 1],
+      ["Run prisma migrate deploy", "danger", 3],
+      ["Deploy", "pending", 0],
+      ["Complete job", "success", 2],
+    ]);
   });
 });

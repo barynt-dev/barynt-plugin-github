@@ -488,6 +488,14 @@ export async function getJob(
     html_url?: string | null;
     started_at?: string | null;
     completed_at?: string | null;
+    steps?: {
+      name?: string;
+      number?: number;
+      status?: string;
+      conclusion?: string | null;
+      started_at?: string | null;
+      completed_at?: string | null;
+    }[];
   }>(api, `/repos/${repo}/actions/jobs/${jobId}`).catch(() => null);
   if (res?.status !== 200 || !res.data) return null;
   const j = res.data;
@@ -499,7 +507,14 @@ export async function getJob(
     url: j.html_url ?? null,
     startedAt: j.started_at ?? null,
     completedAt: j.completed_at ?? null,
-    steps: [],
+    steps: (j.steps ?? []).map((st) => ({
+      name: st.name ?? "",
+      number: st.number ?? 0,
+      status: st.status ?? "queued",
+      conclusion: st.conclusion ?? null,
+      startedAt: st.started_at ?? null,
+      completedAt: st.completed_at ?? null,
+    })),
   };
 }
 
