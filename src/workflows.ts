@@ -3,7 +3,7 @@ import {
   badge,
   button,
   type Field,
-  navList,
+  list,
   notice,
   row,
   type StepState,
@@ -76,6 +76,26 @@ const STEP_ICON = {
   warning: "triangle-alert",
   pending: "circle-dashed",
 } as const;
+
+/** A run's state in a word, in its tone — a cancelled or skipped one
+ *  says so. */
+function runLook(run: WorkflowRun): {
+  text: string;
+  tone: "success" | "danger" | "warning" | "info" | "neutral";
+} {
+  if (run.conclusion === "cancelled" || run.conclusion === "skipped")
+    return { text: t("deployCancelled"), tone: "neutral" };
+  const step = runStep(run);
+  return step === "danger"
+    ? { text: t("deployFailed"), tone: "danger" }
+    : step === "success"
+      ? { text: t("jobsGroupDone"), tone: "success" }
+      : step === "warning"
+        ? { text: t("deployWaiting"), tone: "warning" }
+        : step === "running"
+          ? { text: t("deploying"), tone: "info" }
+          : { text: t("deployQueued"), tone: "neutral" };
+}
 
 /** How long a run took, or runs. */
 function runDuration(run: WorkflowRun): string {
@@ -182,27 +202,33 @@ export async function workflowParts(
   const content: HTMLElement[] = [];
   if (runs.length)
     content.push(
-      navList({
-        items: runs.slice(0, 12).map((run) => ({
-          label: [
-            run.name,
-            run.event === "workflow_dispatch" && run.actor
-              ? t("startedBy", { name: reviewer(run.actor).name })
-              : run.event,
-            runDuration(run),
-            run.updatedAt ? ago(run.updatedAt) : null,
-          ]
-            .filter(Boolean)
-            .join(" · "),
-          icon: STEP_ICON[runStep(run)],
-          ...(RUN_TONE[runStep(run)] && { tone: RUN_TONE[runStep(run)] }),
-          onClick: () =>
-            open({
-              view: "run",
-              title: run.name,
-              data: { repo: run.repo, runId: run.id, name: run.name },
-            }),
-        })),
+      list({
+        items: runs.slice(0, 12).map((run) => {
+          const look = runLook(run);
+          return {
+            title: run.name,
+            note: [
+              run.event === "workflow_dispatch" && run.actor
+                ? t("startedBy", { name: reviewer(run.actor).name })
+                : run.event,
+              // The branch only when the issue has more than one.
+              branches.length > 1 ? run.branch : null,
+              runDuration(run),
+              run.updatedAt ? ago(run.updatedAt) : null,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            icon: STEP_ICON[runStep(run)],
+            ...(RUN_TONE[runStep(run)] && { tone: RUN_TONE[runStep(run)] }),
+            aside: [badge(look)],
+            onClick: () =>
+              open({
+                view: "run",
+                title: run.name,
+                data: { repo: run.repo, runId: run.id, name: run.name },
+              }),
+          };
+        }),
       }),
     );
   else
@@ -271,16 +297,7 @@ export async function renderRun(
   }
   const again = () => void renderRun(api, el, view, host);
   const step = runStep(run);
-  const look =
-    step === "danger"
-      ? { text: t("deployFailed"), tone: "danger" as const }
-      : step === "success"
-        ? { text: t("jobsGroupDone"), tone: "success" as const }
-        : step === "warning"
-          ? { text: t("deployWaiting"), tone: "warning" as const }
-          : step === "running"
-            ? { text: t("deploying"), tone: "info" as const }
-            : { text: t("deployQueued"), tone: "neutral" as const };
+  const look = runLook(run);
   const title = row(
     text({ text: run.name, weight: "semibold", size: "base" }),
     badge(look),
