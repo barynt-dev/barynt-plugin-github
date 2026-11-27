@@ -41,6 +41,10 @@ const OLD_DAYS = 30;
 
 export interface SettingsHost {
   unsaved(on: boolean): void;
+  /** The part someone was sent to — `workflows`. */
+  focus?: string;
+  /** Scrolls Barynt's page to a part of the section. */
+  reveal?(part: HTMLElement): void;
 }
 
 /** Draws the section and gives back what saves it. */
@@ -451,6 +455,11 @@ export async function renderDeploySettings(
       return line;
     });
 
+    const workflowsHead = sectionHeader({
+      size: "sm",
+      title: t("workflowsTitle"),
+      icon: "play",
+    });
     const body = stack(
       heading({ text: t("deployments"), level: 3 }),
       text({ text: t("deploySettingsIntro"), tone: "subtle", size: "sm" }),
@@ -472,7 +481,7 @@ export async function renderDeploySettings(
             rows: envRows,
           })
         : text({ text: t("noEnvironments"), tone: "subtle", size: "sm" }),
-      sectionHeader({ size: "sm", title: t("workflowsTitle"), icon: "play" }),
+      workflowsHead,
       text({ text: t("workflowsSettingsHint"), tone: "subtle", size: "xs" }),
       workflows.length
         ? table({
@@ -506,8 +515,13 @@ export async function renderDeploySettings(
     );
     body.style.gap = "0.75rem";
     el.replaceChildren(body);
+    return workflowsHead;
   };
-  draw();
+  const workflowsHead = draw();
+  // Sent here for the workflows (a hint in an issue): there, once laid out
+  // — a timer, since a frame below the fold gets no animation frames.
+  if (host.focus === "workflows")
+    setTimeout(() => host.reveal?.(workflowsHead), 50);
 
   return async () => {
     const latest = (await api.settings.get().catch(() => ({}))) as Record<

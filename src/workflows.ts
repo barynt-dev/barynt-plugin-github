@@ -3,6 +3,7 @@ import {
   badge,
   button,
   type Field,
+  link,
   list,
   notice,
   row,
@@ -161,6 +162,7 @@ export async function workflowParts(
   branches: Branch[],
   open: Open,
   redraw: () => void,
+  openSettings: (level: "project", focus: string) => void = () => {},
 ): Promise<HTMLElement[]> {
   const [config, me] = await Promise.all([
     configOf(api),
@@ -239,14 +241,24 @@ export async function workflowParts(
         }),
       }),
     );
-  else
+  else if (!hidden)
+    content.push(
+      text({ text: t("noWorkflowRuns"), tone: "subtle", size: "sm" }),
+    );
+  // Hidden from issues: one quiet sentence, the link to the setting in it.
+  if (hidden)
     content.push(
       text({
-        text: hidden
-          ? t("workflowsHidden", { count: hidden })
-          : t("noWorkflowRuns"),
+        text: [
+          t("workflowsHiddenBefore"),
+          link({
+            text: t("workflowsHiddenLink"),
+            onClick: () => openSettings("project", "workflows"),
+          }),
+          t("workflowsHiddenAfter"),
+        ],
         tone: "subtle",
-        size: "sm",
+        size: "xs",
       }),
     );
   const section = sectionHeader({

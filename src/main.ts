@@ -58,6 +58,8 @@ export default class GitHub extends Plugin {
         if (!this.context.projectId) return;
         saveDeploy = await renderDeploySettings(this.api, el, {
           unsaved: (on) => this.setUnsaved(on),
+          focus: this.context.focus,
+          reveal: (part) => this.reveal(part),
         });
       },
       save: async () => {
@@ -137,7 +139,7 @@ export default class GitHub extends Plugin {
           issueId,
           (id, choice) =>
             this.runAction(id, choice === undefined ? {} : { choice }),
-          (level) => this.openSettings(level),
+          (level, focus) => this.openSettings(level, focus),
           this.context.focus,
           (options) => this.openModal(options),
         );

@@ -281,7 +281,7 @@ async function startHere(
   api: Api,
   issueId: string,
   run: (actionId: string) => void,
-  openSettings: (level: "personal" | "project") => void,
+  openSettings: (level: "personal" | "project", focus?: string) => void,
 ): Promise<HTMLElement> {
   const settings = await branchSettings(api).catch(() => null);
   const repo = settings?.repositories[0];
@@ -355,7 +355,10 @@ export async function renderDevelopment(
    *  windows and answers (`Plugin.runAction`). */
   run: (actionId: string, choice?: string) => void,
   /** Opens the plugin's settings in Barynt (`Plugin.openSettings`). */
-  openSettings: (level: "personal" | "project") => void = () => {},
+  openSettings: (
+    level: "personal" | "project",
+    focus?: string,
+  ) => void = () => {},
   /** The part a board's badge asked for (`context.focus`) — unfolded,
    *  whatever was kept. */
   focus?: string,
@@ -703,6 +706,7 @@ export async function renderDevelopment(
       dev.branches.map((b) => ({ name: b.name, repo: b.repo })),
       openModal,
       redraw,
+      openSettings,
     )),
   );
 

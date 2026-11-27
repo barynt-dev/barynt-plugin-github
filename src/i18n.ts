@@ -154,10 +154,9 @@ const en = {
   workflowsPassed_other: "{count} passed",
   startedBy: "started by {name}",
   noWorkflowRuns: "No runs on this issue's branches yet.",
-  workflowsHidden_one:
-    "1 workflow ran here but is hidden from issues — the project's plugin settings, Workflows, show it.",
-  workflowsHidden_other:
-    "{count} workflows ran here but are hidden from issues — the project's plugin settings, Workflows, show them.",
+  workflowsHiddenBefore: "Some workflows are hidden here — ",
+  workflowsHiddenLink: "show them in the settings",
+  workflowsHiddenAfter: ".",
   startWorkflow: "Start workflow…",
   startWorkflowTitle: "Start workflow",
   noStartableWorkflows:
@@ -468,10 +467,9 @@ export const t = translator({
     workflowsPassed_other: "{count} bestanden",
     startedBy: "gestartet von {name}",
     noWorkflowRuns: "Noch keine Läufe auf den Branches dieses Issues.",
-    workflowsHidden_one:
-      "1 Workflow lief hier, ist aber für Issues ausgeblendet — einblenden in den Plugin-Einstellungen des Projekts unter Workflows.",
-    workflowsHidden_other:
-      "{count} Workflows liefen hier, sind aber für Issues ausgeblendet — einblenden in den Plugin-Einstellungen des Projekts unter Workflows.",
+    workflowsHiddenBefore: "Einige Workflows sind ausgeblendet — ",
+    workflowsHiddenLink: "in den Einstellungen ändern",
+    workflowsHiddenAfter: ".",
     startWorkflow: "Workflow starten…",
     startWorkflowTitle: "Workflow starten",
     noStartableWorkflows:
