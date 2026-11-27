@@ -433,18 +433,74 @@ export async function jobLog(
   api: Api,
   repo: string,
   jobId: number,
-): Promise<{ text: string } | { missing: "running" | "gone" | "denied" }> {
+): Promise<
+  { text: string } | { missing: "running" | "gone" | "denied" | "large" }
+> {
   const res = await api.net
     .fetch(`${GITHUB}/repos/${repo}/actions/jobs/${jobId}/logs`, {
       headers: { Accept: "application/vnd.github+json" },
       follow: true,
     })
-    .catch(() => null);
+    .catch((error: unknown) =>
+      // Over what Barynt hands through: open it raw instead.
+      String(error).includes("upstream_failed") ? ("large" as const) : null,
+    );
+  if (res === "large") return { missing: "large" };
   if (!res) return { missing: "denied" };
   if (res.status === 200) return { text: res.text };
   if (res.status === 404) return { missing: "running" };
   if (res.status === 410) return { missing: "gone" };
   return { missing: "denied" };
+}
+
+/** Where GitHub keeps a job's raw log, or a run's logs as a zip — a link
+ *  that works for a minute, to open in a tab. `null` when it won't say. */
+export async function logDownloadUrl(
+  api: Api,
+  repo: string,
+  target: { jobId: number } | { runId: number },
+): Promise<string | null> {
+  const path =
+    "jobId" in target
+      ? `/repos/${repo}/actions/jobs/${target.jobId}/logs`
+      : `/repos/${repo}/actions/runs/${target.runId}/logs`;
+  const res = await api.net
+    .fetch(`${GITHUB}${path}`, {
+      headers: { Accept: "application/vnd.github+json" },
+    })
+    .catch(() => null);
+  return res && res.status >= 300 && res.status < 400
+    ? (res.headers.location ?? null)
+    : null;
+}
+
+/** One job, as GitHub has it now. */
+export async function getJob(
+  api: Api,
+  repo: string,
+  jobId: number,
+): Promise<Job | null> {
+  const res = await github<{
+    id: number;
+    name?: string;
+    status?: string;
+    conclusion?: string | null;
+    html_url?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+  }>(api, `/repos/${repo}/actions/jobs/${jobId}`).catch(() => null);
+  if (res?.status !== 200 || !res.data) return null;
+  const j = res.data;
+  return {
+    id: j.id,
+    name: j.name ?? "job",
+    status: j.status ?? "queued",
+    conclusion: j.conclusion ?? null,
+    url: j.html_url ?? null,
+    startedAt: j.started_at ?? null,
+    completedAt: j.completed_at ?? null,
+    steps: [],
+  };
 }
 
 export interface PendingDeployment {

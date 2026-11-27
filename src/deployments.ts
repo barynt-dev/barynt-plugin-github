@@ -1,4 +1,4 @@
-import type { ModalOptions, Plugin } from "@barynt/plugin-sdk";
+import type { DownloadFile, ModalOptions, Plugin } from "@barynt/plugin-sdk";
 import {
   accordion,
   badge,
@@ -12,6 +12,7 @@ import {
   navList,
   notice,
   type PipelineStation,
+  parseAnsi,
   pipeline,
   row,
   type StepState,
@@ -29,8 +30,10 @@ import type { Deployment, DeploymentRun } from "./entries";
 import { sortEntries } from "./entries";
 import {
   BranchError,
+  getJob,
   type Job,
   jobLog,
+  logDownloadUrl,
   pendingDeployments,
   recentEnvironments,
   rerunFailed,
@@ -414,6 +417,8 @@ function matrix(list: Station[], services: string[], open: Open): HTMLElement {
 export interface WindowHost {
   close(): void;
   openSettings(level: "personal" | "project"): void;
+  openModal(options: ModalOptions): void;
+  download(file: DownloadFile): void;
 }
 
 function stateIcon(state: DeploymentRun["state"]) {
@@ -590,7 +595,16 @@ export async function renderDeployment(
   if (d.runId) {
     const slot = stack(skeleton({ lines: 3 }));
     body.append(slot);
-    void jobsBox(api, el, d, d.runId, view.focus === "failed", again, slot);
+    void jobsBox(
+      api,
+      el,
+      d,
+      d.runId,
+      view.focus === "failed",
+      again,
+      slot,
+      host,
+    );
   }
 
   const runs: DeploymentRun[] = [d, ...(d.history ?? [])];
@@ -650,6 +664,20 @@ export async function renderDeployment(
               { tone: "danger" },
             );
           }
+        },
+      }),
+    );
+  if (runId)
+    actions.push(
+      button({
+        label: t("allLogs"),
+        icon: "arrow-down",
+        variant: "secondary",
+        onClick: async () => {
+          // The zip's link works a minute: asked for on the click.
+          const zip = await logDownloadUrl(api, d.repo, { runId });
+          if (zip) window.open(zip, "_blank", "noopener");
+          else toast(t("logDenied"), { tone: "danger" });
         },
       }),
     );
@@ -857,6 +885,7 @@ async function jobsBox(
   openFailed: boolean,
   back: () => void,
   slot: HTMLElement,
+  host: WindowHost,
 ): Promise<void> {
   // Jobs the run skipped (`if:` false) aren't part of it.
   const jobs = (await runJobs(api, d.repo, runId))?.filter(
@@ -871,7 +900,7 @@ async function jobsBox(
   }
   const failed = jobs.find((j) => jobStep(j.status, j.conclusion) === "danger");
   if (openFailed && failed) {
-    void renderLog(api, el, d, failed, back);
+    void renderLog(api, el, d, failed, back, host);
     return;
   }
   const doneCount = jobs.filter((j) => j.status === "completed").length;
@@ -895,7 +924,7 @@ async function jobsBox(
             .filter(Boolean)
             .join(" · "),
           icon: stepIcon(jobStep(j.status, j.conclusion)),
-          onClick: () => void renderLog(api, el, d, j, back),
+          onClick: () => void renderLog(api, el, d, j, back, host),
         })),
       }),
       open: !settled,
@@ -913,36 +942,190 @@ async function jobsBox(
   // Still running: ask again.
   if (jobs.some((j) => j.status !== "completed"))
     setTimeout(() => {
-      if (slot.isConnected) void jobsBox(api, el, d, runId, false, back, slot);
+      if (slot.isConnected)
+        void jobsBox(api, el, d, runId, false, back, slot, host);
     }, POLL_MS);
 }
 
-/** GitHub's log as lines: without times, `##[group]` a heading,
- *  `##[error]` an error, commands quiet. */
+const TIME = /^\uFEFF?\d{4}-\d\d-\d\dT(\d\d:\d\d:\d\d)(\.\d+)?Z ?/;
+const ANSI = /\u001b\[[\d;]*[A-Za-z]/g;
+
+/** What a line says, by its words — when GitHub didn't mark it. */
+function toneOf(text: string): LogLine["tone"] {
+  if (
+    /^\s*(error|fatal|err!|fail(ed|ure)?)\b|\b(error|exception)\s*[:[]|✗|✖|×\s|\bFAIL\b|exit code [1-9]/i.test(
+      text,
+    )
+  )
+    return "danger";
+  if (/^\s*warn(ing)?\b|\bwarning\s*[:[]|\bdeprecated\b|⚠/i.test(text))
+    return "warning";
+  if (
+    /✓|✔|\b(passed|succeeded|successfully|done in|compiled successfully)\b|\b0 (errors|failed)\b/i.test(
+      text,
+    )
+  )
+    return "success";
+  return undefined;
+}
+
+/**
+ * GitHub's log as lines: the time apart, the terminal's colours kept,
+ * `##[group]` a heading the lines after fold under, `##[error]` and
+ * `##[warning]` marked — and lines that say they failed, warn or passed
+ * marked by their words. Commands quiet.
+ */
 export function logLines(raw: string): LogLine[] {
   const out: LogLine[] = [];
   for (const line of raw.split(/\r?\n/)) {
-    const bare = line
-      .replace(/^\uFEFF?\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z ?/, "")
-      // Colours of the terminal: gone.
-      .replace(/\u001b\[[\d;]*[A-Za-z]/g, "");
+    const time = TIME.exec(line)?.[1];
+    const coloured = line.replace(TIME, "");
+    const bare = coloured.replace(ANSI, "");
     if (bare.startsWith("##[endgroup]")) continue;
+    const stamp = time ? { time } : {};
     const m = /^##\[(group|error|warning|debug|command|notice)\](.*)$/.exec(
       bare,
     );
     if (m) {
       const [, kind, rest] = m;
-      if (kind === "group") out.push({ text: rest, heading: true });
-      else if (kind === "error") out.push({ text: rest, tone: "danger" });
-      else if (kind === "warning") out.push({ text: rest, tone: "warning" });
-      else out.push({ text: rest, tone: "muted" });
-    } else if (bare.startsWith("[command]"))
-      out.push({ text: bare.slice(9), tone: "muted" });
-    else out.push({ text: bare });
+      if (kind === "group") out.push({ text: rest, heading: true, ...stamp });
+      else if (kind === "error")
+        out.push({ text: rest, tone: "danger", ...stamp });
+      else if (kind === "warning")
+        out.push({ text: rest, tone: "warning", ...stamp });
+      else out.push({ text: rest, tone: "muted", ...stamp });
+      continue;
+    }
+    if (bare.startsWith("[command]")) {
+      out.push({ text: bare.slice(9), tone: "muted", ...stamp });
+      continue;
+    }
+    const parts = coloured.includes("\u001b") ? parseAnsi(coloured) : undefined;
+    const styled = parts?.some((p) => p.color || p.bold);
+    // Coloured by the tool already (a script GitHub echoes in cyan): its
+    // colours say it, not its words.
+    const tone = styled ? undefined : toneOf(bare);
+    out.push({
+      text: bare,
+      ...(styled && { parts }),
+      ...(tone && { tone }),
+      ...stamp,
+    });
   }
   while (out.length && !out[out.length - 1].text) out.pop();
   return out;
 }
+
+/** A job's state as a badge. */
+function jobLook(job: Job) {
+  const state = jobStep(job.status, job.conclusion);
+  return state === "danger"
+    ? { text: t("deployFailed"), tone: "danger" as const }
+    : state === "success"
+      ? { text: t("jobsGroupDone"), tone: "success" as const }
+      : state === "warning"
+        ? { text: t("deployWaiting"), tone: "warning" as const }
+        : state === "running"
+          ? { text: t("deploying"), tone: "info" as const }
+          : { text: t("deployQueued"), tone: "neutral" as const };
+}
+
+/** What a log's window is told: which job. */
+export interface LogWindow {
+  repo: string;
+  jobId: number;
+  name: string;
+}
+
+/** The buttons for a log: the whole of it, raw, saved, copied, GitHub. */
+function logTools(
+  api: Api,
+  repo: string,
+  job: { id: number; name: string; url: string | null },
+  logText: string,
+  host: WindowHost,
+  options: { full?: boolean },
+): HTMLElement[] {
+  const fileName = `${job.name.replace(/[^\w.-]+/g, "-").replace(/^-|-$/g, "") || "job"}-${job.id}.log`;
+  return [
+    ...(options.full
+      ? [
+          button({
+            label: t("fullLog"),
+            icon: "chevron-up",
+            variant: "secondary",
+            size: "sm",
+            onClick: () =>
+              host.openModal({
+                view: "log",
+                title: job.name,
+                size: "xl",
+                data: { repo, jobId: job.id, name: job.name },
+              }),
+          }),
+        ]
+      : []),
+    button({
+      label: t("rawLog"),
+      icon: "file",
+      variant: "secondary",
+      size: "sm",
+      onClick: async () => {
+        // The link works a minute: asked for on the click.
+        const url = await logDownloadUrl(api, repo, { jobId: job.id });
+        if (url) window.open(url, "_blank", "noopener");
+        else toast(t("logDenied"), { tone: "danger" });
+      },
+    }),
+    ...(logText
+      ? [
+          button({
+            label: t("downloadLog"),
+            icon: "arrow-down",
+            variant: "secondary",
+            size: "sm",
+            onClick: () => host.download({ name: fileName, text: logText }),
+          }),
+          button({
+            label: t("copyLog"),
+            icon: "copy",
+            variant: "secondary",
+            size: "sm",
+            onClick: async () => {
+              await navigator.clipboard.writeText(logText).catch(() => {});
+              toast(t("copiedLog"));
+            },
+          }),
+        ]
+      : []),
+    ...(job.url
+      ? [
+          button({
+            label: t("onGitHub"),
+            icon: "external-link",
+            variant: "secondary",
+            size: "sm",
+            onClick: () =>
+              void window.open(job.url ?? "", "_blank", "noopener"),
+          }),
+        ]
+      : []),
+  ];
+}
+
+const logMissing = (missing: "running" | "gone" | "denied" | "large") =>
+  notice({
+    tone: "info",
+    compact: true,
+    text:
+      missing === "gone"
+        ? t("logGone")
+        : missing === "running"
+          ? t("logNotYet")
+          : missing === "large"
+            ? t("logLarge")
+            : t("logDenied"),
+  });
 
 /** One job: its steps, and its log once it has one — asked again while it
  *  runs. Back leads to the deployment. */
@@ -952,22 +1135,13 @@ export async function renderLog(
   d: Deployment,
   job: Job,
   back: () => void,
+  host: WindowHost,
 ): Promise<void> {
   const state = jobStep(job.status, job.conclusion);
-  const look =
-    state === "danger"
-      ? { text: t("deployFailed"), tone: "danger" as const }
-      : state === "success"
-        ? { text: t("jobsGroupDone"), tone: "success" as const }
-        : state === "warning"
-          ? { text: t("deployWaiting"), tone: "warning" as const }
-          : state === "running"
-            ? { text: t("deploying"), tone: "info" as const }
-            : { text: t("deployQueued"), tone: "neutral" as const };
   const head = row(
     backButton(back),
     text({ text: job.name, weight: "semibold", size: "sm" }),
-    badge(look),
+    badge(jobLook(job)),
   );
   head.style.alignItems = "center";
   head.style.flexWrap = "wrap";
@@ -979,7 +1153,8 @@ export async function renderLog(
     })),
   });
   const logSlot = stack(skeleton({ lines: 4 }));
-  const body = stack(head, steps, logSlot);
+  const toolSlot = stack();
+  const body = stack(head, steps, toolSlot, logSlot);
   body.style.gap = "0.75rem";
   body.style.padding = "0.25rem 0";
   el.replaceChildren(body);
@@ -991,21 +1166,15 @@ export async function renderLog(
     if ("text" in log) {
       logText = log.text;
       logSlot.replaceChildren(
-        logView({ lines: logLines(log.text), maxHeight: 380, label: job.name }),
-      );
-    } else
-      logSlot.replaceChildren(
-        notice({
-          tone: "info",
-          compact: true,
-          text:
-            log.missing === "gone"
-              ? t("logGone")
-              : log.missing === "running"
-                ? t("logNotYet")
-                : t("logDenied"),
+        logView({
+          lines: logLines(log.text),
+          maxHeight: 360,
+          label: job.name,
+          fold: true,
+          tools: true,
         }),
       );
+    } else logSlot.replaceChildren(logMissing(log.missing));
   } else {
     logSlot.replaceChildren(
       notice({ tone: "info", compact: true, text: t("logWhileRunning") }),
@@ -1015,38 +1184,73 @@ export async function renderLog(
       if (!body.isConnected || !d.runId) return;
       const jobs = await runJobs(api, d.repo, d.runId);
       const now = jobs?.find((j) => j.id === job.id);
-      if (now && body.isConnected) void renderLog(api, el, d, now, back);
+      if (now && body.isConnected) void renderLog(api, el, d, now, back, host);
     }, POLL_MS);
   }
 
-  const tools: HTMLElement[] = [];
-  if (logText)
-    tools.push(
-      button({
-        label: t("copyLog"),
-        icon: "copy",
-        onClick: async () => {
-          await navigator.clipboard.writeText(logText).catch(() => {});
-          toast(t("copiedLog"));
-        },
-      }),
+  if (job.status === "completed") {
+    const tools = row(
+      ...logTools(api, d.repo, job, logText, host, { full: logText !== "" }),
     );
+    tools.style.flexWrap = "wrap";
+    toolSlot.replaceChildren(tools);
+  }
   if (state === "danger")
-    tools.push(
-      button({
-        label: t("rerunJob"),
-        icon: "refresh-cw",
-        onClick: () => rerun(api, d.repo, { jobId: job.id }, back),
-      }),
+    body.append(
+      footOf([
+        button({
+          label: t("rerunJob"),
+          icon: "refresh-cw",
+          variant: "primary",
+          onClick: () => rerun(api, d.repo, { jobId: job.id }, back),
+        }),
+      ]),
     );
-  if (job.url)
-    tools.push(
-      button({
-        label: t("onGitHub"),
-        icon: "external-link",
-        variant: "primary",
-        onClick: () => void window.open(job.url ?? "", "_blank", "noopener"),
-      }),
-    );
-  if (tools.length) body.append(footOf(tools));
+}
+
+/** A job's whole log, in a wide window of its own: every line, folded by
+ *  its parts, to search; raw, saved, copied. */
+export async function renderFullLog(
+  api: Api,
+  el: HTMLElement,
+  view: LogWindow,
+  host: WindowHost,
+): Promise<void> {
+  el.replaceChildren(skeleton({ lines: 8 }));
+  const [job, log] = await Promise.all([
+    getJob(api, view.repo, view.jobId),
+    jobLog(api, view.repo, view.jobId),
+  ]);
+  const shown = job ?? {
+    id: view.jobId,
+    name: view.name,
+    url: null,
+    status: "completed",
+    conclusion: null,
+    startedAt: null,
+    completedAt: null,
+    steps: [],
+  };
+  const logText = "text" in log ? log.text : "";
+  const tools = row(
+    ...(job ? [badge(jobLook(job))] : []),
+    ...logTools(api, view.repo, shown, logText, host, {}),
+  );
+  tools.style.flexWrap = "wrap";
+  tools.style.alignItems = "center";
+  const body = stack(
+    tools,
+    "text" in log
+      ? logView({
+          lines: logLines(log.text),
+          maxHeight: "none",
+          label: view.name,
+          fold: true,
+          tools: true,
+        })
+      : logMissing(log.missing),
+  );
+  body.style.gap = "0.75rem";
+  body.style.padding = "0.25rem 0";
+  el.replaceChildren(body);
 }

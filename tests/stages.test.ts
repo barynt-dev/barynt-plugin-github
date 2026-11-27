@@ -222,7 +222,7 @@ describe("a run's jobs and logs", () => {
     ]);
   });
 
-  it("reads GitHub's log: no times, groups as headings, errors marked", () => {
+  it("reads GitHub's log: times apart, colours kept, groups as headings, errors marked", () => {
     expect(
       logLines(
         [
@@ -235,10 +235,29 @@ describe("a run's jobs and logs", () => {
         ].join("\n"),
       ),
     ).toEqual([
-      { text: "Run bun test", heading: true },
-      { text: "bun test v1.3" },
-      { text: "Process completed with exit code 1.", tone: "danger" },
-      { text: "/usr/bin/git version", tone: "muted" },
+      { text: "Run bun test", heading: true, time: "10:00:00" },
+      {
+        text: "bun test v1.3",
+        parts: [{ text: "bun test v1.3", color: "cyan", bold: true }],
+        time: "10:00:01",
+      },
+      {
+        text: "Process completed with exit code 1.",
+        tone: "danger",
+        time: "10:00:02",
+      },
+      { text: "/usr/bin/git version", tone: "muted", time: "10:00:02" },
     ]);
+  });
+
+  it("marks lines by what they say", () => {
+    const tone = (line: string) => logLines(line)[0]?.tone;
+    expect(tone("Error: column already exists")).toBe("danger");
+    expect(tone("FAIL src/app.test.ts")).toBe("danger");
+    expect(tone("npm warn deprecated glob@7")).toBe("warning");
+    expect(tone("✓ Compiled successfully")).toBe("success");
+    expect(tone("24 passed (31s)")).toBe("success");
+    expect(tone("0 errors")).toBe("success");
+    expect(tone("Installing dependencies")).toBeUndefined();
   });
 });

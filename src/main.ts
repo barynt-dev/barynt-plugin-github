@@ -1,4 +1,8 @@
-import { Plugin } from "@barynt/plugin-sdk";
+import {
+  type DownloadFile,
+  type ModalOptions,
+  Plugin,
+} from "@barynt/plugin-sdk";
 import {
   copyBranchNameAction,
   createBranchAction,
@@ -11,7 +15,9 @@ import {
 import {
   configOf,
   type DeploymentView,
+  type LogWindow,
   renderDeployment,
+  renderFullLog,
   renderStage,
   type StageView,
 } from "./deployments";
@@ -66,7 +72,13 @@ export default class GitHub extends Plugin {
           close: () => this.closeModal(),
           openSettings: (level: "personal" | "project") =>
             this.openSettings(level),
+          openModal: (options: ModalOptions) => this.openModal(options),
+          download: (file: DownloadFile) => this.download(file),
         };
+        if (modal?.view === "log") {
+          await renderFullLog(this.api, el, modal.data as LogWindow, host);
+          return;
+        }
         if (modal?.view === "deployment") {
           await renderDeployment(
             this.api,

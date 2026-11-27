@@ -298,7 +298,7 @@ describe("the GitHub plugin", () => {
     expect(inModal.textContent).toContain("Deploy · ");
     expect(
       [...inModal.querySelectorAll(".bui-button")].map((b) => b.textContent),
-    ).toEqual(["Deploy again", "On GitHub", "Open app"]);
+    ).toEqual(["Deploy again", "All logs (zip)", "On GitHub", "Open app"]);
   });
 
   it("with nothing linked, says where to start", async () => {

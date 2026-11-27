@@ -193,6 +193,12 @@ const en = {
   logWhileRunning:
     "The log comes once the job is done — its steps update here.",
   copyLog: "Copy",
+  fullLog: "Full log",
+  rawLog: "Raw log",
+  downloadLog: "Download",
+  allLogs: "All logs (zip)",
+  logLarge:
+    "This log is too big to show here — open it raw or download all logs.",
   copiedLog: "Log copied",
   stagePreview: "Preview",
   stageTest: "Test",
@@ -452,6 +458,12 @@ export const t = translator({
     logWhileRunning:
       "Das Log kommt, wenn der Job fertig ist — die Schritte aktualisieren sich hier.",
     copyLog: "Kopieren",
+    fullLog: "Vollständiges Log",
+    rawLog: "Raw-Log",
+    downloadLog: "Herunterladen",
+    allLogs: "Alle Logs (zip)",
+    logLarge:
+      "Dieses Log ist zu groß für die Ansicht — öffne es als Raw-Log oder lade alle Logs herunter.",
     copiedLog: "Log kopiert",
     stagePreview: "Preview",
     stageTest: "Test",
