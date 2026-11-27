@@ -59,6 +59,16 @@ export function runStep(run: WorkflowRun): StepState {
   return jobStep(run.status, run.conclusion);
 }
 
+/** A run's state, in colour — none for one that didn't run. */
+const RUN_TONE: Partial<
+  Record<StepState, "success" | "danger" | "warning" | "info">
+> = {
+  success: "success",
+  danger: "danger",
+  running: "info",
+  warning: "warning",
+};
+
 const STEP_ICON = {
   success: "circle-check",
   danger: "circle-x",
@@ -185,6 +195,7 @@ export async function workflowParts(
             .filter(Boolean)
             .join(" · "),
           icon: STEP_ICON[runStep(run)],
+          ...(RUN_TONE[runStep(run)] && { tone: RUN_TONE[runStep(run)] }),
           onClick: () =>
             open({
               view: "run",
@@ -198,23 +209,31 @@ export async function workflowParts(
     content.push(
       text({ text: t("noWorkflowRuns"), tone: "subtle", size: "sm" }),
     );
-  if (startable.length && branches.length)
-    content.push(
-      button({
-        label: t("startWorkflow"),
-        icon: "play",
-        variant: "secondary",
-        size: "sm",
-        onClick: () =>
-          open({ view: "start", title: t("startWorkflowTitle"), size: "md" }),
-      }),
-    );
   const section = sectionHeader({
     size: "sm",
     title: t("workflowsTitle"),
     icon: "play",
     count: runs.length,
     ...(status && { status }),
+    // Starting one, as a branch is created: a "+" in the head.
+    ...(startable.length &&
+      branches.length && {
+        actions: [
+          button({
+            label: t("startWorkflowTitle"),
+            icon: "plus",
+            iconOnly: true,
+            size: "sm",
+            variant: "ghost",
+            onClick: () =>
+              open({
+                view: "start",
+                title: t("startWorkflowTitle"),
+                size: "md",
+              }),
+          }),
+        ],
+      }),
     fold: {
       content,
       // A failure opens it, whatever was kept.
