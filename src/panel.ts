@@ -40,6 +40,7 @@ import { branchSettings, canReach, proposedName } from "./github";
 import { t } from "./i18n";
 import { prLook } from "./row";
 import { ago } from "./time";
+import { workflowParts } from "./workflows";
 
 // The "Development" panel in an issue's sidebar (BARY-229): its branch,
 // its pull requests with their checks, size and reviews, and the commits
@@ -691,6 +692,16 @@ export async function renderDevelopment(
     }),
   );
 
+  const redraw = () =>
+    void renderDevelopment(
+      api,
+      el,
+      issueId,
+      run,
+      openSettings,
+      focus,
+      openModal,
+    );
   // Where it runs: its environments, production last (BARY-238).
   parts.push(
     ...(await deploymentParts(
@@ -698,16 +709,14 @@ export async function renderDevelopment(
       dev.deployments,
       dev.commits,
       openModal,
-      () =>
-        void renderDevelopment(
-          api,
-          el,
-          issueId,
-          run,
-          openSettings,
-          focus,
-          openModal,
-        ),
+      redraw,
+    )),
+    // The GitHub Actions runs on its branches that aren't a deployment.
+    ...(await workflowParts(
+      api,
+      dev.branches.map((b) => ({ name: b.name, repo: b.repo })),
+      openModal,
+      redraw,
     )),
   );
 

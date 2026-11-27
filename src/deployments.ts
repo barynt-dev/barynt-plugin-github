@@ -79,6 +79,7 @@ export interface StageView {
 }
 
 const FOLD_SERVICES = "fold:services";
+const FOLD_DEPLOY = "fold:deployments";
 /** How often a running job is asked again (ms). */
 const POLL_MS = 5000;
 
@@ -240,14 +241,7 @@ export async function deploymentParts(
   const visible = list.flatMap((s) => s.deployments);
   if (list.length === 0) return [];
 
-  const parts: HTMLElement[] = [
-    sectionHeader({
-      size: "sm",
-      title: t("deployments"),
-      icon: "rocket",
-      count: visible.length,
-    }),
-  ];
+  const parts: HTMLElement[] = [];
   const services = servicesOf(list);
   const byService =
     services.length > 1 &&
@@ -354,7 +348,28 @@ export async function deploymentParts(
               }),
       }),
     );
-  return parts;
+  // Folded away or not — each person's own; what needs someone opens it.
+  const kept = await api.storage.personal
+    .get<boolean>(FOLD_DEPLOY)
+    .catch(() => null);
+  const urgent = visible.some(
+    (d) => d.state === "failure" || d.state === "waiting",
+  );
+  return [
+    sectionHeader({
+      size: "sm",
+      title: t("deployments"),
+      icon: "rocket",
+      count: visible.length,
+      fold: {
+        content: parts,
+        open: urgent || kept !== false,
+        onToggle: (on) => {
+          void api.storage.personal.set(FOLD_DEPLOY, on).catch(() => {});
+        },
+      },
+    }),
+  ];
 }
 
 const stageName = (list: Station[], d: Deployment) =>
@@ -879,7 +894,7 @@ function stepIcon(step: StepState) {
 
 /** The run's jobs, grouped, the done groups folded; asked again while
  *  one runs. A click on a job shows its log. */
-async function jobsBox(
+export async function jobsBox(
   api: Api,
   el: HTMLElement,
   d: Deployment,

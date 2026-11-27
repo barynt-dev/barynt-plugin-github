@@ -1,4 +1,5 @@
 import { BaryntError, type Plugin } from "@barynt/plugin-sdk";
+import { parse as parseYaml } from "yaml";
 import { branchName, DEFAULT_PATTERN, parseRepositories } from "./branch";
 import { t } from "./i18n";
 
@@ -632,5 +633,221 @@ export async function repoWorkflows(
           },
         ]
       : [],
+  );
+}
+
+// ─── Workflows: runs on a branch, what they take, starting one (BARY-238) ────
+
+export interface WorkflowRun {
+  id: number;
+  name: string;
+  /** Its file in `.github/workflows`, `ci.yml`. */
+  file: string;
+  status: string;
+  conclusion: string | null;
+  /** What started it: `push`, `pull_request`, `workflow_dispatch` … */
+  event: string;
+  branch: string | null;
+  sha: string | null;
+  actor: string | null;
+  number: number | null;
+  startedAt: string | null;
+  updatedAt: string | null;
+  url: string | null;
+  repo: string;
+}
+
+type RawRun = {
+  id: number;
+  name?: string;
+  path?: string;
+  status?: string;
+  conclusion?: string | null;
+  event?: string;
+  head_branch?: string | null;
+  head_sha?: string | null;
+  actor?: { login?: string } | null;
+  triggering_actor?: { login?: string } | null;
+  run_number?: number;
+  run_started_at?: string | null;
+  updated_at?: string | null;
+  html_url?: string | null;
+};
+
+const runOf = (repo: string, r: RawRun): WorkflowRun => ({
+  id: r.id,
+  name: r.name ?? r.path ?? "workflow",
+  file: (r.path ?? "").split("/").pop() ?? "",
+  status: r.status ?? "queued",
+  conclusion: r.conclusion ?? null,
+  event: r.event ?? "",
+  branch: r.head_branch ?? null,
+  sha: r.head_sha ?? null,
+  actor: r.triggering_actor?.login ?? r.actor?.login ?? null,
+  number: r.run_number ?? null,
+  startedAt: r.run_started_at ?? null,
+  updatedAt: r.updated_at ?? null,
+  url: r.html_url ?? null,
+  repo,
+});
+
+/** The workflow runs on a branch, newest first. */
+export async function branchRuns(
+  api: Api,
+  repo: string,
+  branch: string,
+): Promise<WorkflowRun[]> {
+  const res = await github<{ workflow_runs?: RawRun[] }>(
+    api,
+    `/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=50`,
+  ).catch(() => null);
+  if (res?.status !== 200) return [];
+  return (res.data?.workflow_runs ?? []).map((r) => runOf(repo, r));
+}
+
+/** One run, as GitHub has it now. */
+export async function getRun(
+  api: Api,
+  repo: string,
+  runId: number,
+): Promise<WorkflowRun | null> {
+  const res = await github<RawRun>(
+    api,
+    `/repos/${repo}/actions/runs/${runId}`,
+  ).catch(() => null);
+  return res?.status === 200 && res.data ? runOf(repo, res.data) : null;
+}
+
+/** One input a workflow takes when started by hand (`workflow_dispatch`). */
+export interface WorkflowInput {
+  name: string;
+  type: "string" | "boolean" | "choice" | "number" | "environment";
+  description: string | null;
+  required: boolean;
+  default: string | boolean | null;
+  options: string[];
+}
+
+/** What a workflow's file says it takes when started by hand — `null`
+ *  when it can't be started by hand (no `workflow_dispatch`) or the file
+ *  can't be read. */
+export function readInputs(yamlText: string): WorkflowInput[] | null {
+  let doc: unknown;
+  try {
+    doc = parseYaml(yamlText);
+  } catch {
+    return null;
+  }
+  const on = (doc as Record<string, unknown> | null)?.on;
+  const dispatch =
+    on === "workflow_dispatch"
+      ? {}
+      : Array.isArray(on)
+        ? on.includes("workflow_dispatch")
+          ? {}
+          : undefined
+        : on && typeof on === "object" && "workflow_dispatch" in on
+          ? ((on as Record<string, unknown>).workflow_dispatch ?? {})
+          : undefined;
+  if (dispatch === undefined) return null;
+  const inputs =
+    (dispatch as { inputs?: Record<string, Record<string, unknown>> }).inputs ??
+    {};
+  return Object.entries(inputs).map(([name, raw]) => {
+    const i = raw ?? {};
+    const type = ["boolean", "choice", "number", "environment"].includes(
+      String(i.type),
+    )
+      ? (i.type as WorkflowInput["type"])
+      : "string";
+    const value = i.default;
+    return {
+      name,
+      type,
+      description: typeof i.description === "string" ? i.description : null,
+      required: i.required === true,
+      default:
+        typeof value === "boolean"
+          ? value
+          : value === undefined || value === null
+            ? null
+            : String(value),
+      options: Array.isArray(i.options) ? i.options.map(String) : [],
+    };
+  });
+}
+
+/** A workflow's inputs, read from its file. */
+export async function workflowInputs(
+  api: Api,
+  repo: string,
+  file: string,
+): Promise<WorkflowInput[] | null> {
+  const res = await github<{ content?: string; encoding?: string }>(
+    api,
+    `/repos/${repo}/contents/.github/workflows/${encodeURIComponent(file)}`,
+  ).catch(() => null);
+  if (res?.status !== 200 || !res.data?.content) return null;
+  try {
+    const bytes = Uint8Array.from(
+      atob(res.data.content.replace(/\s/g, "")),
+      (c) => c.charCodeAt(0),
+    );
+    return readInputs(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
+/** A repository's environments, by name. */
+export async function repoEnvironmentNames(
+  api: Api,
+  repo: string,
+): Promise<string[]> {
+  const res = await github<{ environments?: { name?: string }[] }>(
+    api,
+    `/repos/${repo}/environments?per_page=100`,
+  ).catch(() => null);
+  if (res?.status !== 200) return [];
+  return (res.data?.environments ?? []).flatMap((e) =>
+    e.name ? [e.name] : [],
+  );
+}
+
+/**
+ * Starts a workflow by hand on a branch, with its inputs — as the person
+ * when they have a GitHub account here, else through the connection's
+ * app. Throws a `BranchError` that says what to do.
+ */
+export async function dispatchWorkflow(
+  api: Api,
+  repo: string,
+  file: string,
+  ref: string,
+  inputs: Record<string, string>,
+): Promise<"person" | "app"> {
+  const path = `/repos/${repo}/actions/workflows/${encodeURIComponent(file)}/dispatches`;
+  const body = { ref, inputs };
+  const asPerson = await github(api, path, {
+    method: "POST",
+    body,
+    asPerson: true,
+  }).catch(() => null);
+  if (asPerson?.status === 204 || asPerson?.status === 200) return "person";
+  const res = await github<{ message?: string }>(api, path, {
+    method: "POST",
+    body,
+  });
+  if (res.status === 204 || res.status === 200) return "app";
+  throw new BranchError(
+    res.status === 404
+      ? t("workflowNotFound", { workflow: file, repo })
+      : res.status === 422
+        ? t("workflowInputsRefused", {
+            message: res.data?.message ?? "",
+          }).trim()
+        : res.status === 403
+          ? t("workflowNoRight")
+          : t("answered", { status: res.status }),
   );
 }

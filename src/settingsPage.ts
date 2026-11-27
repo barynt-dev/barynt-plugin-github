@@ -14,7 +14,7 @@ import {
   textField,
   toggle,
 } from "@barynt/plugin-sdk/ui";
-import { recentEnvironments, repoWorkflows } from "./github";
+import { recentEnvironments, repoWorkflows, workflowInputs } from "./github";
 import { t } from "./i18n";
 import {
   type DeployConfig,
@@ -23,6 +23,7 @@ import {
   place,
   readConfig,
   recognize,
+  type WorkflowSetting,
   writeConfig,
 } from "./stages";
 import { ago } from "./time";
@@ -75,16 +76,30 @@ export async function renderDeploySettings(
         a.environment.localeCompare(b.environment),
       );
     }),
-    Promise.all(repos.map((r) => repoWorkflows(api, r).catch(() => []))).then(
-      (all) => {
-        const seen = new Map<
-          string,
-          { file: string; name: string; updatedAt: string | null }
-        >();
-        for (const w of all.flat()) if (!seen.has(w.file)) seen.set(w.file, w);
-        return [...seen.values()].sort((a, b) => a.file.localeCompare(b.file));
-      },
-    ),
+    Promise.all(
+      repos.map(async (repo) =>
+        (await repoWorkflows(api, repo).catch(() => [])).map((w) => ({
+          ...w,
+          repo,
+        })),
+      ),
+    ).then(async (all) => {
+      const seen = new Map<
+        string,
+        { file: string; name: string; updatedAt: string | null; repo: string }
+      >();
+      for (const w of all.flat()) if (!seen.has(w.file)) seen.set(w.file, w);
+      const list = [...seen.values()].sort((a, b) =>
+        a.file.localeCompare(b.file),
+      );
+      // What each takes when started by hand — `null`: it can't be.
+      return Promise.all(
+        list.slice(0, 30).map(async (w) => ({
+          ...w,
+          inputs: await workflowInputs(api, w.repo, w.file).catch(() => null),
+        })),
+      );
+    }),
   ]);
   const known = new Set(config.known);
   const firstTime = config.known.length === 0;
@@ -265,24 +280,53 @@ export async function renderDeploySettings(
 
     // ─── Workflows ───────────────────────────────────────────────────────
     const wfRows = workflows.map((w) => {
-      const own = config.workflows.find((x) => x.workflow === w.file);
-      const set = (patch: { stage?: string; branch?: string }) => {
+      const own = () => config.workflows.find((x) => x.workflow === w.file);
+      const set = (patch: Partial<WorkflowSetting>) => {
         const i = config.workflows.findIndex((x) => x.workflow === w.file);
-        const next = {
-          workflow: w.file,
-          environment: "",
-          stage: patch.stage ?? own?.stage ?? "",
-          ...((patch.branch ?? own?.branch) && {
-            branch: patch.branch ?? own?.branch,
-          }),
+        const next: WorkflowSetting = {
+          ...(own() ?? { workflow: w.file }),
+          ...patch,
         };
-        if (patch.branch === "") delete (next as { branch?: string }).branch;
-        if (!next.stage) {
+        for (const k of Object.keys(next) as (keyof WorkflowSetting)[])
+          if (next[k] === undefined || next[k] === "") delete next[k];
+        const plain =
+          Object.keys(next).length === 1 && next.workflow === w.file;
+        if (plain) {
           if (i >= 0) config.workflows.splice(i, 1);
         } else if (i >= 0) config.workflows[i] = next;
         else config.workflows.push(next);
         changed();
       };
+      const current = own();
+      const startable = w.inputs !== null;
+      const prefill = stack(
+        ...(w.inputs ?? []).map((input) => {
+          const line = row(
+            text({ text: input.name, mono: true, size: "xs" }),
+            textField({
+              label: t("prefillFor", { name: input.name }),
+              hideLabel: true,
+              value: current?.prefill?.[input.name] ?? "",
+              placeholder:
+                typeof input.default === "string"
+                  ? input.default
+                  : t("prefillHint"),
+              onInput: (v) => {
+                const next = { ...(own()?.prefill ?? {}) };
+                if (v.trim()) next[input.name] = v.trim();
+                else delete next[input.name];
+                set({ prefill: Object.keys(next).length ? next : undefined });
+              },
+            }).el,
+          );
+          // Name and field in columns, one under the other.
+          line.style.display = "grid";
+          line.style.gridTemplateColumns = "6.5rem minmax(9rem, 1fr)";
+          line.style.alignItems = "center";
+          return line;
+        }),
+      );
+      prefill.style.gap = "0.375rem";
       return {
         workflow: stack(
           row(
@@ -293,28 +337,66 @@ export async function renderDeploySettings(
           ),
           text({ text: w.name, size: "xs", tone: "subtle" }),
         ),
-        stage: select({
-          label: t("stage"),
+        show: toggle({
+          label: t("showWorkflow", { name: w.file }),
           hideLabel: true,
-          options: [
-            { value: "", label: t("noDeployment") },
-            ...stageOptions(false),
-          ],
-          value: own?.stage ?? "",
-          onChange: (v) => set({ stage: v }),
+          checked: current?.show !== false,
+          onChange: (on) => set({ show: on ? undefined : false }),
         }).el,
-        branch: textField({
-          label: t("onlyBranch"),
-          hideLabel: true,
-          value: own?.branch ?? "",
-          placeholder: t("anyBranch"),
-          onInput: (v) => set({ branch: v.trim() }),
-        }).el,
-        last: text({
-          text: w.updatedAt ? ago(w.updatedAt) : "—",
-          size: "xs",
-          tone: "subtle",
-        }),
+        start: startable
+          ? stack(
+              toggle({
+                label: t("startableWorkflow", { name: w.file }),
+                hideLabel: true,
+                checked: current?.start === true,
+                onChange: (on) => {
+                  set({ start: on || undefined });
+                  // Who may, and what's filled in, only for one that is.
+                  draw();
+                },
+              }).el,
+              ...(current?.start
+                ? [
+                    select({
+                      label: t("whoMayStart"),
+                      hideLabel: true,
+                      options: [
+                        { value: "members", label: t("startByMembers") },
+                        { value: "managers", label: t("startByManagers") },
+                      ],
+                      value: current?.startBy ?? "members",
+                      onChange: (v) =>
+                        set({
+                          startBy: v === "managers" ? "managers" : undefined,
+                        }),
+                    }).el,
+                  ]
+                : []),
+            )
+          : text({ text: t("notStartable"), size: "xs", tone: "subtle" }),
+        prefill:
+          startable && current?.start && (w.inputs ?? []).length
+            ? prefill
+            : text({ text: "–", tone: "subtle" }),
+        stage: stack(
+          select({
+            label: t("stage"),
+            hideLabel: true,
+            options: [
+              { value: "", label: t("noDeployment") },
+              ...stageOptions(false),
+            ],
+            value: current?.stage ?? "",
+            onChange: (v) => set({ stage: v || undefined }),
+          }).el,
+          textField({
+            label: t("onlyBranch"),
+            hideLabel: true,
+            value: current?.branch ?? "",
+            placeholder: t("anyBranch"),
+            onInput: (v) => set({ branch: v.trim() || undefined }),
+          }).el,
+        ),
       };
     });
 
@@ -390,19 +472,16 @@ export async function renderDeploySettings(
             rows: envRows,
           })
         : text({ text: t("noEnvironments"), tone: "subtle", size: "sm" }),
-      sectionHeader({
-        size: "sm",
-        title: t("workflowDeployments"),
-        icon: "play",
-      }),
-      text({ text: t("workflowDeploymentsHint"), tone: "subtle", size: "xs" }),
+      sectionHeader({ size: "sm", title: t("workflowsTitle"), icon: "play" }),
+      text({ text: t("workflowsSettingsHint"), tone: "subtle", size: "xs" }),
       workflows.length
         ? table({
             columns: [
               { key: "workflow", label: t("workflow") },
-              { key: "stage", label: t("stage") },
-              { key: "branch", label: t("onlyBranch") },
-              { key: "last", label: t("changed") },
+              { key: "show", label: t("showInIssue") },
+              { key: "start", label: t("startable") },
+              { key: "prefill", label: t("prefill") },
+              { key: "stage", label: t("asDeployment") },
             ],
             rows: wfRows,
           })

@@ -21,10 +21,12 @@ import {
   renderStage,
   type StageView,
 } from "./deployments";
+import { sortEntries } from "./entries";
 import { t } from "./i18n";
 import { renderDevelopment } from "./panel";
 import { pullRequestRow } from "./row";
 import { renderDeploySettings } from "./settingsPage";
+import { type RunWindow, renderRun, renderStart } from "./workflows";
 
 // The plugin's part in Barynt's frames: it draws what Barynt keeps on the
 // issues from GitHub's webhooks — the pull request's row on a card
@@ -75,6 +77,24 @@ export default class GitHub extends Plugin {
           openModal: (options: ModalOptions) => this.openModal(options),
           download: (file: DownloadFile) => this.download(file),
         };
+        if (modal?.view === "run") {
+          await renderRun(this.api, el, modal.data as RunWindow, host);
+          return;
+        }
+        if (modal?.view === "start") {
+          const data = await this.api.issueData.list([issueId]);
+          const { branches } = sortEntries(data[issueId] ?? []);
+          await renderStart(
+            this.api,
+            el,
+            issueId,
+            branches
+              .filter((b) => !b.deleted)
+              .map((b) => ({ name: b.name, repo: b.repo })),
+            host,
+          );
+          return;
+        }
         if (modal?.view === "log") {
           await renderFullLog(this.api, el, modal.data as LogWindow, host);
           return;

@@ -34,14 +34,24 @@ export interface Pattern {
   region?: string;
 }
 
-/** A workflow whose run counts as a deployment. `environment` and
- *  `production` are what Barynt reads when the run comes in. */
+/** A workflow in the issue: shown under Workflows, started from it,
+ *  its inputs filled from the issue — or, with a `stage`, its runs
+ *  counted as a deployment there (`environment` and `production` are what
+ *  Barynt reads when such a run comes in). */
 export interface WorkflowSetting {
   workflow: string;
-  stage: string;
-  environment: string;
+  stage?: string;
+  environment?: string;
   branch?: string;
   production?: boolean;
+  /** Shown under Workflows — unless `false`. */
+  show?: boolean;
+  /** Started from the issue (`workflow_dispatch`). */
+  start?: boolean;
+  /** Who may start it: anyone in the project, or who manages the plugin. */
+  startBy?: "members" | "managers";
+  /** Inputs filled from the issue — `{key}`, `{title}`, `{branch}`. */
+  prefill?: Record<string, string>;
 }
 
 export interface DeployConfig {
@@ -116,19 +126,27 @@ export function readConfig(raw: unknown): DeployConfig {
     ? o.workflows.flatMap((w): WorkflowSetting[] => {
         if (!isObj(w)) return [];
         const workflow = str(w.workflow, 200);
-        const stage = str(w.stage, 40);
-        const environment = str(w.environment, 100);
-        return workflow && stage && environment
-          ? [
-              {
-                workflow,
-                stage,
-                environment,
-                ...(str(w.branch, 200) && { branch: str(w.branch, 200) }),
-                ...(w.production === true && { production: true }),
-              },
-            ]
-          : [];
+        if (!workflow) return [];
+        const prefill: Record<string, string> = {};
+        if (isObj(w.prefill))
+          for (const [k, v] of Object.entries(w.prefill).slice(0, 25))
+            if (typeof v === "string" && v.trim())
+              prefill[k.slice(0, 100)] = v.slice(0, 500);
+        return [
+          {
+            workflow,
+            ...(str(w.stage, 40) && { stage: str(w.stage, 40) }),
+            ...(str(w.environment, 100) && {
+              environment: str(w.environment, 100),
+            }),
+            ...(str(w.branch, 200) && { branch: str(w.branch, 200) }),
+            ...(w.production === true && { production: true }),
+            ...(w.show === false && { show: false }),
+            ...(w.start === true && { start: true }),
+            ...(w.startBy === "managers" && { startBy: "managers" as const }),
+            ...(Object.keys(prefill).length && { prefill }),
+          },
+        ];
       })
     : [];
   return {
@@ -149,11 +167,16 @@ export function writeConfig(config: DeployConfig): DeployConfig {
   const live = config.stages.find((s) => s.live)?.id;
   return {
     ...config,
-    workflows: config.workflows.map((w) => ({
-      ...w,
-      environment: workflowEnvironment(w.workflow),
-      production: w.stage === live,
-    })),
+    workflows: config.workflows.map((w) => {
+      const { environment: _e, production: _p, ...rest } = w;
+      return w.stage
+        ? {
+            ...rest,
+            environment: workflowEnvironment(w.workflow),
+            production: w.stage === live,
+          }
+        : rest;
+    }),
   };
 }
 
